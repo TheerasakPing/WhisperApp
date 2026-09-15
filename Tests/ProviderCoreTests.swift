@@ -4,6 +4,7 @@ import Foundation
 struct ProviderCoreTests {
     static func main() throws {
         try testRegistryCoverage()
+        try testCurrentProviderDefaults()
         try testOpenAIRequestIncludesTemperatureWhenSupported()
         try testRequestOmitsTemperatureWhenUnsupported()
         try testAnthropicPayloadAndHeaders()
@@ -23,6 +24,19 @@ struct ProviderCoreTests {
         }
         try expect(LLMRegistry.provider(id: "groq").defaultModel == "llama-3.3-70b-versatile",
                    "Groq default changed unexpectedly")
+    }
+
+    static func testCurrentProviderDefaults() throws {
+        try expect(LLMRegistry.provider(id: "deepseek").defaultModel == "deepseek-flash",
+                   "DeepSeek must not default to retired legacy model names")
+        try expect(LLMRegistry.provider(id: "deepseek").modelsEndpoint == "https://api.deepseek.com/models",
+                   "DeepSeek models endpoint missing")
+        try expect(LLMRegistry.provider(id: "gemini").defaultModel == "gemini-3.8-flash",
+                   "Gemini default should track the current OpenAI-compatible example")
+        try expect(LLMRegistry.provider(id: "gemini").modelsEndpoint == "https://generativelanguage.googleapis.com/v1beta/openai/models",
+                   "Gemini models endpoint missing")
+        try expect(LLMRegistry.provider(id: "anthropic").defaultModel == "claude-haiku-4-5-20251001",
+                   "Anthropic default should use the active exact Haiku model ID")
     }
 
     static func testOpenAIRequestIncludesTemperatureWhenSupported() throws {
