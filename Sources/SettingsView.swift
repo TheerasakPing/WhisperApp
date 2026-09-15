@@ -18,6 +18,8 @@ struct SettingsView: View {
     @State private var llmModel = ""
     @State private var llmEndpoint = ""
     @State private var llmMsg = ""
+    @State private var llmModels: [String] = []
+    @State private var llmLoadingModels = false
 
     private var sttProvider: STTProvider { STTRegistry.provider(id: sttProviderID) }
     private var llmProvider: LLMProvider { LLMRegistry.provider(id: llmProviderID) }
@@ -104,6 +106,7 @@ struct SettingsView: View {
             }
             .onChange(of: llmProviderID) { _ in
                 LLMSettings.providerID = llmProviderID
+                llmModels = []
                 loadLlmFields()
             }
 
@@ -119,6 +122,21 @@ struct SettingsView: View {
             TextField(llmProvider.defaultEndpoint.isEmpty ? "Endpoint URL (required)" : "Endpoint: \(llmProvider.defaultEndpoint)",
                       text: $llmEndpoint)
                 .textFieldStyle(.roundedBorder)
+
+            if llmProvider.modelsEndpoint != nil {
+                HStack {
+                    Button(llmLoadingModels ? "Loading Models…" : "Load Models") { loadModels() }
+                        .disabled(llmLoadingModels)
+                    if !llmModels.isEmpty {
+                        Picker("Available", selection: $llmModel) {
+                            Text("Use default (\(llmProvider.defaultModel))").tag("")
+                            ForEach(llmModels, id: \.self) { model in Text(model).tag(model) }
+                        }
+                        .labelsHidden()
+                        .frame(maxWidth: 260)
+                    }
+                }
+            }
 
             HStack {
                 Button("Save AI") { saveLlm() }.buttonStyle(.borderedProminent)
@@ -156,6 +174,27 @@ struct SettingsView: View {
         llmKey = LLMSettings.savedKeyFile(for: p)
         llmModel = LLMSettings.savedModel(for: p)
         llmEndpoint = LLMSettings.savedEndpoint(for: p)
+    }
+
+    private func loadModels() {
+        let p = llmProvider
+        let typedKey = llmKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = typedKey.isEmpty ? LLMSettings.key(for: p) : typedKey
+        llmLoadingModels = true
+        llmMsg = "⏳ Loading models…"
+        LLMModelCatalogService().fetch(provider: p, apiKey: key) { result in
+            DispatchQueue.main.async {
+                llmLoadingModels = false
+                switch result {
+                case .success(let models):
+                    llmModels = models
+                    llmMsg = "✅ \(models.count) models"
+                case .failure(let error):
+                    llmModels = []
+                    llmMsg = "❌ \(error.localizedDescription)"
+                }
+            }
+        }
     }
 
     private func saveLlm() {
