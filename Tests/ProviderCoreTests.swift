@@ -5,6 +5,7 @@ struct ProviderCoreTests {
     static func main() throws {
         try testRegistryCoverage()
         try testCurrentProviderDefaults()
+        try testModelCatalogParser()
         try testOpenAIRequestIncludesTemperatureWhenSupported()
         try testRequestOmitsTemperatureWhenUnsupported()
         try testAnthropicPayloadAndHeaders()
@@ -37,6 +38,21 @@ struct ProviderCoreTests {
                    "Gemini models endpoint missing")
         try expect(LLMRegistry.provider(id: "anthropic").defaultModel == "claude-haiku-4-5-20251001",
                    "Anthropic default should use the active exact Haiku model ID")
+        try expect(LLMRegistry.provider(id: "anthropic").modelsEndpoint == "https://api.anthropic.com/v1/models",
+                   "Anthropic models endpoint missing")
+    }
+
+    static func testModelCatalogParser() throws {
+        let json: [String: Any] = [
+            "data": [
+                ["id": "model-b"],
+                ["id": "model-a"],
+                ["name": "ignored"],
+                ["id": "model-a"],
+            ]
+        ]
+        try expect(LLMModelCatalog.modelIDs(from: json) == ["model-b", "model-a"],
+                   "model catalog must preserve provider order and deduplicate ids")
     }
 
     static func testOpenAIRequestIncludesTemperatureWhenSupported() throws {
