@@ -61,7 +61,9 @@ enum LLMSettings {
     }
 
     static func endpoint(for p: LLMProvider) -> URL? {
-        URL(string: endpointString(for: p))
+        let value = endpointString(for: p).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return nil }
+        return URL(string: value)
     }
 
     static func endpointString(for p: LLMProvider) -> String {
