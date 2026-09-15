@@ -1,0 +1,77 @@
+import Foundation
+
+@main
+struct ProviderCoreTests {
+    static func main() throws {
+        try testRegistryCoverage()
+        try testOpenAIRequestIncludesTemperatureWhenSupported()
+        try testRequestOmitsTemperatureWhenUnsupported()
+        try testAnthropicPayloadAndHeaders()
+        try testGLMThinkingPolicyIsCapabilityDriven()
+        try testLocalProviderDoesNotRequireAuth()
+        print("ProviderCoreTests: PASS")
+    }
+
+    static func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
+        if !condition() { throw TestError(message) }
+    }
+
+    static func testRegistryCoverage() throws {
+        let ids = Set(LLMRegistry.all.map(\.id))
+        for id in ["openai", "anthropic", "gemini", "xai", "groq", "openrouter", "deepseek", "qwen", "glm", "minimax", "custom"] {
+            try expect(ids.contains(id), "missing provider: \(id)")
+        }
+        try expect(LLMRegistry.provider(id: "groq").defaultModel == "llama-3.3-70b-versatile",
+                   "Groq default changed unexpectedly")
+    }
+
+    static func testOpenAIRequestIncludesTemperatureWhenSupported() throws {
+        let p = LLMRegistry.provider(id: "groq")
+        let spec = LLMRequestBuilder.build(provider: p, model: p.defaultModel,
+                                           systemPrompt: "sys", userText: "hello")
+        try expect(spec.headers["Authorization"] == "Bearer {API_KEY}", "OpenAI auth template mismatch")
+        try expect((spec.body["temperature"] as? Double) == 0.2, "temperature should be present")
+        try expect(spec.apiProtocol == .openAIChat, "Groq should use OpenAI chat")
+    }
+
+    static func testRequestOmitsTemperatureWhenUnsupported() throws {
+        var p = LLMRegistry.provider(id: "anthropic")
+        p = p.withCapabilities(LLMCapabilities(supportsTemperature: false))
+        let spec = LLMRequestBuilder.build(provider: p, model: p.defaultModel,
+                                           systemPrompt: "sys", userText: "hello")
+        try expect(spec.body["temperature"] == nil, "temperature must be omitted when unsupported")
+    }
+
+    static func testAnthropicPayloadAndHeaders() throws {
+        let p = LLMRegistry.provider(id: "anthropic")
+        let spec = LLMRequestBuilder.build(provider: p, model: p.defaultModel,
+                                           systemPrompt: "sys", userText: "hello")
+        try expect(spec.apiProtocol == .anthropicMessages, "Anthropic protocol mismatch")
+        try expect(spec.headers["x-api-key"] == "{API_KEY}", "Anthropic auth template mismatch")
+        try expect(spec.headers["anthropic-version"] == "2023-06-01", "Anthropic version missing")
+        try expect((spec.body["system"] as? String) == "sys", "Anthropic system prompt missing")
+    }
+
+    static func testLocalProviderDoesNotRequireAuth() throws {
+        let p = LLMRegistry.provider(id: "ollama")
+        let spec = LLMRequestBuilder.build(provider: p, model: "llama3",
+                                           systemPrompt: "sys", userText: "hello")
+        try expect(p.requiresAPIKey == false, "Ollama should not require an API key")
+        try expect(spec.headers["Authorization"] == nil, "Ollama must not send a fake bearer token")
+    }
+
+    static func testGLMThinkingPolicyIsCapabilityDriven() throws {
+        let p = LLMRegistry.provider(id: "glm")
+        let spec = LLMRequestBuilder.build(provider: p, model: "not-named-glm-anymore",
+                                           systemPrompt: "sys", userText: "hello")
+        let thinking = spec.body["thinking"] as? [String: String]
+        try expect(thinking?["type"] == "disabled",
+                   "GLM thinking disable must come from provider capability")
+    }
+}
+
+struct TestError: Error, CustomStringConvertible {
+    let message: String
+    init(_ message: String) { self.message = message }
+    var description: String { message }
+}
