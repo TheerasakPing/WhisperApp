@@ -13,6 +13,7 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 - 🎙️ **Global hotkey** — default is the **Fn key alone**, hold-to-talk; toggle mode: double-tap to start, single tap to stop. Fully configurable in Settings.
 - ⚡ **Groq by default** — a single Groq API key can still power both transcription (`whisper-large-v3-turbo`) and AI correction (`llama-3.3-70b-versatile`)
 - 🔌 **Multi-provider AI correction** — presets for OpenAI, Anthropic Claude, Google Gemini, xAI Grok, Groq, OpenRouter, DeepSeek, Alibaba Qwen / Model Studio, Z.AI GLM, MiniMax, plus custom OpenAI-compatible endpoints
+- 🔄 **Live model catalogs** — supported providers can load their current `/models` catalog directly in Settings while retaining manual Model ID entry as a fallback
 - 🖥️ **Local LLM support on macOS** — Ollama and LM Studio presets, with no API key required
 - ☁️ **Selectable cloud STT** — ElevenLabs Scribe, OpenAI, Groq Whisper, or a custom OpenAI-compatible transcription endpoint
 - ✨ **AI text correction** — fixes garbled words and adds punctuation before pasting
@@ -49,6 +50,8 @@ API keys are resolved from the Settings UI first, then from the provider's envir
 export GROQ_API_KEY="gsk_..."
 ```
 
+For providers with a model catalog endpoint, click **Load Models** in Settings to fetch the currently available model IDs. You can always type a model ID manually when a provider does not expose a catalog or when you need a model that is not listed.
+
 Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints, so the full `/chat/completions` endpoint is entered in Settings for the Qwen preset.
 
 ## Build from source
@@ -84,6 +87,7 @@ certificate — the build scripts auto-detect it.
 - `AVAudioEngine` → 16 kHz mono Int16 WAV recording
 - Separate STT and LLM provider registries
 - Capability-driven LLM request builder for OpenAI-compatible Chat Completions and Anthropic Messages
+- Dynamic model catalog service for providers exposing `{ "data": [{ "id": ... }] }` model lists
 - Provider-specific model, endpoint, auth, and request-policy settings with Groq as the backward-compatible default
 - Floating `NSPanel` + SwiftUI status overlay
 - Windows port mirrors the configurable STT/LLM provider model
