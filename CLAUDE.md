@@ -10,6 +10,7 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 - **Provider:** Groq ยังเป็นค่าเริ่มต้นและรองรับ key เดียวสำหรับ STT (`whisper-large-v3-turbo`) + correction (`llama-3.3-70b-versatile`) แต่ Settings สามารถเลือก STT และ LLM แยกกันได้แล้ว
 - **LLM architecture:** `LLMProviderCore.swift` แยก vendor / wire protocol / auth / capabilities ออกจาก persistence ใน `LLMProvider.swift`; รองรับ OpenAI-compatible Chat Completions และ Anthropic Messages โดยไม่เดาพฤติกรรมจากชื่อโมเดล
 - **LLM presets:** Groq, OpenAI, Anthropic Claude, Google Gemini, xAI Grok, OpenRouter, DeepSeek, Alibaba Qwen / Model Studio, Z.AI GLM, MiniMax, Custom; macOS มี Ollama และ LM Studio แบบ local/no-key เพิ่มด้วย
+- **Model catalog:** macOS Settings มี `Load Models` สำหรับ provider ที่มี `/models`; parser รองรับรูปแบบ `data[].id` และยังกรอก Model ID เองได้เสมอ
 - **STT presets:** ElevenLabs, OpenAI, Groq และ Custom OpenAI-compatible; vendor-specific STT เช่น Qwen ASR ยังเป็นงานเฟสถัดไป
 - **Logo:** Claude-style cream/clay paper-cut mic — mask ด้วย superellipse (n=5) เขียนด้วย Python/PIL, อย่าใช้ขอบที่ AI gen มาตรงๆ (มันเบี้ยว)
 - **About window:** มีแล้ว (`AboutView.swift`) — เครดิต Gamezxz + ลิงก์
@@ -29,9 +30,9 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 
 ## ค้าง / ทำต่อได้
 
-- Dynamic model catalog จาก `/models` สำหรับ provider ที่รองรับ
 - Responses API adapters สำหรับ OpenAI/xAI/Alibaba และ provider ที่รองรับ
 - Vendor-specific STT adapters เช่น Qwen ASR
 - ย้าย credential ไป Keychain (macOS) / DPAPI (Windows) พร้อม migration จากค่าเดิม
+- เพิ่ม dynamic model catalog ฝั่ง Windows ให้ parity กับ macOS
 - Submit sitemap ใน Google Search Console (user ต้องทำเอง)
 - JSON-LD `softwareVersion` + `downloadUrl` ใน `docs/index.html` ต้องอัปเดตทุกครั้งที่ออกเวอร์ชันใหม่
