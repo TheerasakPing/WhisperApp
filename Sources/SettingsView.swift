@@ -25,8 +25,7 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Whisper Settings")
-                    .font(.title3).bold()
+                Text("Whisper Settings").font(.title3).bold()
 
                 hotkeySection
                 Divider()
@@ -39,7 +38,7 @@ struct SettingsView: View {
             }
             .padding(20)
         }
-        .frame(width: 520, height: 720)
+        .frame(width: 460, height: 720)
         .onAppear {
             loadSttFields()
             loadLlmFields()
@@ -50,27 +49,20 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Global Hotkey", systemImage: "keyboard")
                 .font(.subheadline).bold()
-
             HStack(spacing: 12) {
                 Text("Shortcut:").font(.caption)
                 HotkeyRecorderView(hotkey: $hotkeyConfig, isRecording: $isRecordingHotkey)
                     .frame(width: 180, height: 30)
-                Button(isRecordingHotkey ? "Listening…" : "Change") {
-                    isRecordingHotkey.toggle()
-                }
-                .disabled(isRecordingHotkey)
+                Button(isRecordingHotkey ? "Listening…" : "Change") { isRecordingHotkey.toggle() }
+                    .disabled(isRecordingHotkey)
                 Button("Reset") {
                     hotkeyConfig = .default
                     HotkeyManager.shared.updateConfig(hotkeyConfig)
                 }
             }
-
             Toggle("Hold to talk (press & hold to record, release to stop)", isOn: $hotkeyConfig.isHoldMode)
                 .font(.caption)
-                .onChange(of: hotkeyConfig.isHoldMode) { _ in
-                    HotkeyManager.shared.updateConfig(hotkeyConfig)
-                }
-
+                .onChange(of: hotkeyConfig.isHoldMode) { _ in HotkeyManager.shared.updateConfig(hotkeyConfig) }
             Text("Toggle mode: double-tap to start, single tap to stop · Hold mode: press and hold to record")
                 .font(.caption2).foregroundColor(.secondary)
         }
@@ -82,30 +74,22 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Speech-to-Text", systemImage: "waveform")
                 .font(.subheadline).bold()
-
             Picker("Provider", selection: $sttProviderID) {
-                ForEach(STTRegistry.all) { p in
-                    Text(p.name).tag(p.id)
-                }
+                ForEach(STTRegistry.all) { p in Text(p.name).tag(p.id) }
             }
             .onChange(of: sttProviderID) { _ in
                 STTSettings.providerID = sttProviderID
                 loadSttFields()
             }
 
-            SecureField(sttProvider.envKey, text: $sttKey)
-                .textFieldStyle(.roundedBorder)
-            TextField("Model: \(sttProvider.defaultModel)", text: $sttModel)
-                .textFieldStyle(.roundedBorder)
-            TextField("Endpoint: \(sttProvider.defaultEndpoint)", text: $sttEndpoint)
-                .textFieldStyle(.roundedBorder)
+            SecureField(sttProvider.envKey, text: $sttKey).textFieldStyle(.roundedBorder)
+            TextField("Model: \(sttProvider.defaultModel)", text: $sttModel).textFieldStyle(.roundedBorder)
+            TextField("Endpoint: \(sttProvider.defaultEndpoint)", text: $sttEndpoint).textFieldStyle(.roundedBorder)
 
             HStack {
-                Button("Save STT") { saveStt() }
-                    .buttonStyle(.borderedProminent)
+                Button("Save STT") { saveStt() }.buttonStyle(.borderedProminent)
                 if !sttMsg.isEmpty { Text(sttMsg).font(.caption) }
             }
-
             Text("Leave model/endpoint blank to use the provider default. Keys are stored locally.")
                 .font(.caption2).foregroundColor(.secondary)
         }
@@ -115,11 +99,8 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("AI Text Correction", systemImage: "sparkles")
                 .font(.subheadline).bold()
-
             Picker("Provider", selection: $llmProviderID) {
-                ForEach(LLMRegistry.all) { p in
-                    Text(p.name).tag(p.id)
-                }
+                ForEach(LLMRegistry.all) { p in Text(p.name).tag(p.id) }
             }
             .onChange(of: llmProviderID) { _ in
                 LLMSettings.providerID = llmProviderID
@@ -127,13 +108,11 @@ struct SettingsView: View {
             }
 
             if llmProvider.requiresAPIKey {
-                SecureField(llmProvider.envKey, text: $llmKey)
-                    .textFieldStyle(.roundedBorder)
+                SecureField(llmProvider.envKey, text: $llmKey).textFieldStyle(.roundedBorder)
             } else {
                 Text("No API key required for this local provider.")
                     .font(.caption).foregroundColor(.secondary)
             }
-
             TextField(llmProvider.defaultModel.isEmpty ? "Model ID" : "Model: \(llmProvider.defaultModel)",
                       text: $llmModel)
                 .textFieldStyle(.roundedBorder)
@@ -142,11 +121,9 @@ struct SettingsView: View {
                 .textFieldStyle(.roundedBorder)
 
             HStack {
-                Button("Save AI") { saveLlm() }
-                    .buttonStyle(.borderedProminent)
+                Button("Save AI") { saveLlm() }.buttonStyle(.borderedProminent)
                 if !llmMsg.isEmpty { Text(llmMsg).font(.caption) }
             }
-
             if llmProvider.id == "qwen" {
                 Text("Alibaba Model Studio uses region/workspace-specific endpoints. Paste the full /chat/completions URL for your workspace.")
                     .font(.caption2).foregroundColor(.secondary)
@@ -184,9 +161,7 @@ struct SettingsView: View {
     private func saveLlm() {
         let p = llmProvider
         LLMSettings.providerID = p.id
-        if p.requiresAPIKey {
-            LLMSettings.saveKey(llmKey, for: p)
-        }
+        if p.requiresAPIKey { LLMSettings.saveKey(llmKey, for: p) }
         LLMSettings.saveModel(llmModel, for: p)
         LLMSettings.saveEndpoint(llmEndpoint, for: p)
         llmMsg = LLMSettings.isConfigured(p) ? "✅ Saved" : "⚠️ Check key / model / endpoint"
