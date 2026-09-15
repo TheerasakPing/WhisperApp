@@ -89,6 +89,7 @@ enum LLMRegistry {
         LLMProvider(id: "anthropic", name: "Anthropic (Claude)",
                     defaultEndpoint: "https://api.anthropic.com/v1/messages",
                     defaultModel: "claude-haiku-4-5-20251001",
+                    modelsEndpoint: "https://api.anthropic.com/v1/models",
                     envKey: "ANTHROPIC_API_KEY", apiProtocol: .anthropicMessages,
                     capabilities: LLMCapabilities(supportsTemperature: false)),
         LLMProvider(id: "gemini", name: "Google Gemini",
@@ -221,5 +222,21 @@ enum LLMRequestBuilder {
             guard let content = json["content"] as? [[String: Any]] else { return nil }
             return content.compactMap { $0["text"] as? String }.joined()
         }
+    }
+}
+
+/// Shared parser for provider model catalogs that expose an OpenAI/Anthropic-style
+/// `{ "data": [{ "id": "..." }] }` response.
+enum LLMModelCatalog {
+    static func modelIDs(from json: [String: Any]) -> [String] {
+        guard let data = json["data"] as? [[String: Any]] else { return [] }
+        var seen = Set<String>()
+        var result: [String] = []
+        for item in data {
+            guard let id = item["id"] as? String, !id.isEmpty, !seen.contains(id) else { continue }
+            seen.insert(id)
+            result.append(id)
+        }
+        return result
     }
 }
