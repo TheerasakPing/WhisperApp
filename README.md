@@ -79,11 +79,28 @@ Notarization in `make_dmg.sh` expects a keychain profile named `whisperapp-notar
 permissions across rebuilds), sign with your own **Developer ID Application**
 certificate — the build scripts auto-detect it.
 
+### macOS Apple Silicon (M1–M4) release in GitHub Actions
+
+The `macOS ARM64 Release` workflow builds a native `arm64` app on the macOS Apple Silicon runner, signs it with a **Developer ID Application** certificate, notarizes both the `.app` and `.dmg`, staples the notarization tickets, verifies Gatekeeper acceptance, and uploads:
+
+- `Whisper-<version>-macOS-arm64.dmg`
+- `Whisper-<version>-macOS-arm64.dmg.sha256`
+
+Configure these repository **Actions secrets** before running the release workflow:
+
+- `MACOS_CERTIFICATE_P12_BASE64` — Base64-encoded Developer ID Application `.p12`
+- `MACOS_CERTIFICATE_PASSWORD` — password for the `.p12`
+- `APPLE_ID` — Apple Developer account email used for notarization
+- `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password for that Apple ID
+- `APPLE_TEAM_ID` — Apple Developer Team ID
+
+Run the workflow manually from **Actions → macOS ARM64 Release → Run workflow** to produce a signed/notarized downloadable Actions artifact. Pushing a tag matching `v*` (for example `v1.3.0`) additionally creates or updates the matching GitHub Release and attaches the ARM64 DMG plus checksum.
+
 ### Release checklist
 
 1. Bump version in `Info.plist`
-2. `./make_dmg.sh`
-3. `gh release create vX.Y *.dmg`
+2. For a local Mac release, run `./make_dmg.sh`; for Apple Silicon CI release, use the `macOS ARM64 Release` workflow
+3. Push a `vX.Y` / `vX.Y.Z` tag when the ARM64 artifact should be attached to GitHub Releases
 4. Update the download link + version badge + JSON-LD (`softwareVersion`, `downloadUrl`) in `docs/index.html`
 
 ## Architecture
