@@ -6,6 +6,7 @@ struct STTProviderCoreTests {
         try testRegistryIncludesQwenASR()
         try testOpenAIMultipartProviderShape()
         try testQwenASRBuildsAudioChatPayload()
+        try testQwenASRRejectsOversizedAudio()
         try testQwenASRExtractsTranscript()
         print("STTProviderCoreTests: PASS")
     }
@@ -19,6 +20,7 @@ struct STTProviderCoreTests {
         try expect(p.id == "qwen_asr", "Qwen ASR provider missing")
         try expect(p.defaultModel == "qwen3-asr-flash", "Qwen ASR default model mismatch")
         try expect(p.transport == .audioChatJSON, "Qwen ASR must use audio-chat JSON transport")
+        try expect(p.maxAudioBytes == 10 * 1024 * 1024, "Qwen ASR size limit mismatch")
     }
 
     static func testOpenAIMultipartProviderShape() throws {
@@ -43,6 +45,21 @@ struct STTProviderCoreTests {
         let dataURI = inputAudio?["data"] as? String
         try expect(dataURI?.hasPrefix("data:audio/wav;base64,") == true, "Qwen ASR must embed a data URI")
         try expect((spec.body["stream"] as? Bool) == false, "Qwen ASR should disable streaming")
+    }
+
+    static func testQwenASRRejectsOversizedAudio() throws {
+        let p = STTRegistry.provider(id: "qwen_asr")
+        let audio = Data(count: (10 * 1024 * 1024) + 1)
+        do {
+            _ = try STTRequestBuilder.buildJSON(provider: p,
+                                                model: p.defaultModel,
+                                                audioData: audio,
+                                                mimeType: "audio/wav",
+                                                language: "auto")
+            throw STTTestError("oversized Qwen audio should be rejected")
+        } catch STTRequestBuilderError.audioTooLarge(let limit) {
+            try expect(limit == 10 * 1024 * 1024, "wrong Qwen audio limit in error")
+        }
     }
 
     static func testQwenASRExtractsTranscript() throws {
