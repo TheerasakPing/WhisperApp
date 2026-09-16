@@ -5,17 +5,25 @@ cd "$(dirname "$0")"
 
 APP_NAME="WhisperApp"          # SPM executable name (must match Package.swift target)
 APP_BUNDLE="Whisper.app"       # name shown in /Applications
-KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
+KEYCHAIN="${WHISPERAPP_KEYCHAIN:-${HOME}/Library/Keychains/login.keychain-db}"
+ARCH="${WHISPERAPP_ARCH:-}"
+REQUIRE_DEVELOPER_ID="${WHISPERAPP_REQUIRE_DEVELOPER_ID:-0}"
 
-echo "🔨 Building release..."
-swift build -c release
+BUILD_ARGS=(-c release)
+if [ -n "$ARCH" ]; then
+    BUILD_ARGS+=(--arch "$ARCH")
+fi
+
+echo "🔨 Building release${ARCH:+ for $ARCH}..."
+swift build "${BUILD_ARGS[@]}"
+BIN_DIR=$(swift build "${BUILD_ARGS[@]}" --show-bin-path)
 
 echo "📦 Assembling $APP_BUNDLE..."
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
 
-cp ".build/release/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+cp "$BIN_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 cp "Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 
 # App icon
@@ -35,7 +43,6 @@ if [ -n "$SPARKLE_FW" ]; then
     mkdir -p "$APP_BUNDLE/Contents/Frameworks"
     rm -rf "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
     cp -R "$SPARKLE_FW" "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
-    # executable must find @rpath/Sparkle.framework → add rpath to ../Frameworks
     install_name_tool -add_rpath @loader_path/../Frameworks "$APP_BUNDLE/Contents/MacOS/$APP_NAME" 2>/dev/null || true
     echo "🪄 Embed Sparkle.framework"
 else
@@ -43,14 +50,12 @@ else
 fi
 
 # Code signing:
-# - ถ้ามี "Developer ID Application" → sign ด้วย cert นี้ (identity คงที่ สิทธิ์ TCC อยู่ข้าม rebuild)
-# - ไม่งั้น fallback ad-hoc (สิทธิ์จะหายทุกครั้งที่ rebuild)
+# - ถ้ามี "Developer ID Application" → sign ด้วย cert นี้
+# - local build ยัง fallback ad-hoc ได้
+# - CI release ตั้ง WHISPERAPP_REQUIRE_DEVELOPER_ID=1 เพื่อห้าม ad-hoc โดยเด็ดขาด
 DEV_ID=$(security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null | grep "Developer ID Application" | head -1 | sed -n 's/.*"\(.*\)".*/\1/p')
 
 if [ -n "$DEV_ID" ]; then
-    # Sign nested Sparkle.framework ก่อน (ลำดับสำคัญ — nested ต้อง sign ก่อน bundle)
-    # --deep เพราะ framework มี nested executables (Autoupdate, Updater.app, XPC services)
-    # ที่ต้อง sign + hardened runtime + secure timestamp ทุกตัว ไม่งั้น notarization reject
     if [ -d "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework" ]; then
         codesign --force --deep --sign "$DEV_ID" --options runtime --timestamp \
             "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
@@ -59,6 +64,9 @@ if [ -n "$DEV_ID" ]; then
     codesign --force --options runtime --timestamp \
         --entitlements WhisperApp.entitlements \
         --sign "$DEV_ID" "$APP_BUNDLE"
+elif [ "$REQUIRE_DEVELOPER_ID" = "1" ]; then
+    echo "❌ Release build requires a Developer ID Application certificate in: $KEYCHAIN"
+    exit 1
 else
     echo "✍️  Code signing (ad-hoc) — แนะนำให้ติดตั้ง Developer ID cert เพื่อสิทธิ์คงที่"
     codesign --force --deep --sign - "$APP_BUNDLE"
