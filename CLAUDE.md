@@ -8,12 +8,15 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 - **อย่า rename:** repo/GitHub URL, SPM target (`WhisperApp`), หรือ bundle ID (`com.game.whisperapp`) — กระทบ git history, SPM build, TCC permissions. เปลี่ยนชื่อ bundle dir (`Whisper.app`) ได้เพราะ TCC bind กับ bundle ID + code signature ไม่ใช่ชื่อไฟล์
 - **Hotkey default:** Fn, hold-to-talk · toggle mode = เคาะ 2 ครั้งเริ่ม เคาะ 1 ครั้งหยุด (`HotkeyManager.swift`)
 - **Provider:** Groq ยังเป็นค่าเริ่มต้นและรองรับ key เดียวสำหรับ STT (`whisper-large-v3-turbo`) + correction (`llama-3.3-70b-versatile`) แต่ Settings สามารถเลือก STT และ LLM แยกกันได้แล้ว
-- **LLM architecture:** `LLMProviderCore.swift` แยก vendor / wire protocol / auth / capabilities ออกจาก persistence ใน `LLMProvider.swift`; รองรับ OpenAI-compatible Chat Completions และ Anthropic Messages โดยไม่เดาพฤติกรรมจากชื่อโมเดล
+- **LLM architecture:** `LLMProviderCore.swift` แยก vendor / wire protocol / auth / capabilities ออกจาก persistence ใน `LLMProvider.swift`; รองรับ OpenAI-compatible Chat Completions, OpenAI-compatible Responses และ Anthropic Messages โดยไม่เดาพฤติกรรมจากชื่อโมเดล
+- **Responses presets:** `openai_responses` (`gpt-5.6-luna`, `/v1/responses`), `xai_responses` (`grok-4.6`, `/v1/responses`) และ `qwen_responses` (workspace-specific `/compatible-mode/v1/responses`)
+- **Responses policy:** ส่ง `store: false`; text extraction อ่าน `output[].content[].output_text`; reasoning effort = `none` สำหรับ OpenAI/Qwen และ `low` สำหรับ Grok 4.6 เพื่อให้เหมาะกับ text correction latency
 - **LLM presets:** Groq, OpenAI, Anthropic Claude, Google Gemini, xAI Grok, OpenRouter, DeepSeek, Alibaba Qwen / Model Studio, Z.AI GLM, MiniMax, Moonshot/Kimi, ByteDance Doubao/Volcengine Ark, Custom; macOS มี Ollama และ LM Studio แบบ local/no-key เพิ่มด้วย
 - **Kimi policy:** `kimi-k2.6` ใช้ OpenAI Chat Completions, ไม่ส่ง `temperature` และส่ง `thinking: {type: disabled}` สำหรับงาน correction latency ต่ำ; model list ใช้ `/v1/models`
 - **Doubao policy:** ใช้ Ark OpenAI-compatible `/api/v3/chat/completions`, Bearer `ARK_API_KEY`, default `doubao-seed-2-1-pro-260628` และยัง override endpoint/model ได้จาก Settings
 - **Model catalog:** macOS Settings มี `Load Models` สำหรับ provider ที่มี `/models`; parser รองรับรูปแบบ `data[].id` และยังกรอก Model ID เองได้เสมอ
-- **STT presets:** ElevenLabs, OpenAI, Groq และ Custom OpenAI-compatible; vendor-specific STT เช่น Qwen ASR ยังเป็นงานเฟสถัดไป
+- **STT presets:** ElevenLabs, OpenAI, Groq และ Custom OpenAI-compatible; Qwen ASR อยู่ใน PR แยกเพื่อไม่ผูก STT กับ Responses LLM work
+- **Windows CI:** `.github/workflows/provider-core-tests.yml` compile `windows/build.bat` บน `windows-latest`; `build.bat` ใช้ `vswhere` หา Roslyn รุ่นปัจจุบันแทนการ hard-code VS2019
 - **Logo:** Claude-style cream/clay paper-cut mic — mask ด้วย superellipse (n=5) เขียนด้วย Python/PIL, อย่าใช้ขอบที่ AI gen มาตรงๆ (มันเบี้ยว)
 - **About window:** มีแล้ว (`AboutView.swift`) — เครดิต Gamezxz + ลิงก์
 
@@ -22,6 +25,7 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 - `./run.sh` — build + เปิดแอป (dev loop)
 - `./make_dmg.sh` — build → sign → **notarize + staple อัตโนมัติ** (ต้องมี keychain profile `whisperapp-notary`, มีแล้วในเครื่องนี้)
 - Provider core regression tests: `bash scripts/test_provider_core.sh`
+- Responses policy regression tests: `bash scripts/test_responses_policy.sh`
 - ออกเวอร์ชันใหม่: bump `Info.plist` → `./make_dmg.sh` → `gh release create vX.Y *.dmg` → แก้ลิงก์ดาวน์โหลด + badge เวอร์ชันใน `docs/index.html` (ลิงก์ตรงไปไฟล์ DMG ไม่ใช่ releases/latest)
 
 ## เว็บโปรโมต (GitHub Pages)
@@ -32,9 +36,8 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 
 ## ค้าง / ทำต่อได้
 
-- Responses API adapters สำหรับ OpenAI/xAI/Alibaba และ provider ที่รองรับ
-- Vendor-specific STT adapters เช่น Qwen ASR
 - ย้าย credential ไป Keychain (macOS) / DPAPI (Windows) พร้อม migration จากค่าเดิม
 - เพิ่ม dynamic model catalog ฝั่ง Windows ให้ parity กับ macOS
+- ขยาย Responses presets เฉพาะ provider ที่เอกสารปัจจุบันรองรับและมีประโยชน์จริง
 - Submit sitemap ใน Google Search Console (user ต้องทำเอง)
 - JSON-LD `softwareVersion` + `downloadUrl` ใน `docs/index.html` ต้องอัปเดตทุกครั้งที่ออกเวอร์ชันใหม่
