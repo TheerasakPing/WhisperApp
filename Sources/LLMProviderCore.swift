@@ -15,7 +15,7 @@ enum LLMAuthStyle: String, Hashable {
 
 enum LLMThinkingPolicy: String, Hashable {
     case none
-    case disableAnthropicThinking
+    case disableThinking
 }
 
 struct LLMCapabilities: Hashable {
@@ -124,12 +124,23 @@ enum LLMRegistry {
                     defaultModel: "glm-5.2",
                     envKey: "ZAI_API_KEY", apiProtocol: .anthropicMessages,
                     capabilities: LLMCapabilities(supportsTemperature: true,
-                                                  thinkingPolicy: .disableAnthropicThinking)),
+                                                  thinkingPolicy: .disableThinking)),
         LLMProvider(id: "minimax", name: "MiniMax",
                     defaultEndpoint: "https://api.minimax.io/v1/chat/completions",
                     defaultModel: "MiniMax-M2.7",
                     modelsEndpoint: "https://api.minimax.io/v1/models",
                     envKey: "MINIMAX_API_KEY", apiProtocol: .openAIChat),
+        LLMProvider(id: "moonshot", name: "Moonshot / Kimi",
+                    defaultEndpoint: "https://api.moonshot.ai/v1/chat/completions",
+                    defaultModel: "kimi-k2.6",
+                    modelsEndpoint: "https://api.moonshot.ai/v1/models",
+                    envKey: "MOONSHOT_API_KEY", apiProtocol: .openAIChat,
+                    capabilities: LLMCapabilities(supportsTemperature: false,
+                                                  thinkingPolicy: .disableThinking)),
+        LLMProvider(id: "doubao", name: "ByteDance Doubao / Volcengine Ark",
+                    defaultEndpoint: "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+                    defaultModel: "doubao-seed-2-1-pro-260628",
+                    envKey: "ARK_API_KEY", apiProtocol: .openAIChat),
 
         // Local / self-hosted OpenAI-compatible servers
         LLMProvider(id: "ollama", name: "Ollama (Local)",
@@ -204,7 +215,7 @@ enum LLMRequestBuilder {
             body["temperature"] = 0.2
         }
 
-        if provider.capabilities.thinkingPolicy == .disableAnthropicThinking {
+        if provider.capabilities.thinkingPolicy == .disableThinking {
             body["thinking"] = ["type": "disabled"]
         }
 
