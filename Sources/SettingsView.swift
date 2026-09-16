@@ -151,7 +151,10 @@ struct SettingsView: View {
                 Button("Save AI") { saveLlm() }.buttonStyle(.borderedProminent)
                 if !llmMsg.isEmpty { Text(llmMsg).font(.caption) }
             }
-            if llmProvider.id == "qwen" {
+            if llmProvider.id == "qwen_responses" {
+                Text("Alibaba Model Studio Responses uses a workspace/region-specific endpoint. Paste the full /compatible-mode/v1/responses URL for your workspace.")
+                    .font(.caption2).foregroundColor(.secondary)
+            } else if llmProvider.id == "qwen" {
                 Text("Alibaba Model Studio uses region/workspace-specific endpoints. Paste the full /chat/completions URL for your workspace.")
                     .font(.caption2).foregroundColor(.secondary)
             } else {

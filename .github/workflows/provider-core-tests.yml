@@ -21,6 +21,9 @@ jobs:
       - name: Test LLM provider core
         run: bash scripts/test_provider_core.sh
 
+      - name: Test Responses reasoning policy
+        run: bash scripts/test_responses_policy.sh
+
       - name: Test STT provider core when present
         shell: bash
         run: |
@@ -29,3 +32,13 @@ jobs:
           else
             echo 'STT provider core test not present on this branch'
           fi
+
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Windows app
+        shell: cmd
+        run: windows\build.bat
