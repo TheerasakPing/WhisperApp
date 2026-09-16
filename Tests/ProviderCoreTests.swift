@@ -5,6 +5,8 @@ struct ProviderCoreTests {
     static func main() throws {
         try testRegistryCoverage()
         try testCurrentProviderDefaults()
+        try testKimiRequestPolicy()
+        try testDoubaoOpenAICompatibility()
         try testModelCatalogParser()
         try testOpenAIRequestIncludesTemperatureWhenSupported()
         try testRequestOmitsTemperatureWhenUnsupported()
@@ -20,7 +22,7 @@ struct ProviderCoreTests {
 
     static func testRegistryCoverage() throws {
         let ids = Set(LLMRegistry.all.map(\.id))
-        for id in ["openai", "anthropic", "gemini", "xai", "groq", "openrouter", "deepseek", "qwen", "glm", "minimax", "custom"] {
+        for id in ["openai", "anthropic", "gemini", "xai", "groq", "openrouter", "deepseek", "qwen", "glm", "minimax", "moonshot", "doubao", "custom"] {
             try expect(ids.contains(id), "missing provider: \(id)")
         }
         try expect(LLMRegistry.provider(id: "groq").defaultModel == "llama-3.3-70b-versatile",
@@ -40,6 +42,30 @@ struct ProviderCoreTests {
                    "Anthropic default should use the active exact Haiku model ID")
         try expect(LLMRegistry.provider(id: "anthropic").modelsEndpoint == "https://api.anthropic.com/v1/models",
                    "Anthropic models endpoint missing")
+        try expect(LLMRegistry.provider(id: "moonshot").defaultModel == "kimi-k2.6",
+                   "Kimi default should use the documented chat-completions model")
+        try expect(LLMRegistry.provider(id: "moonshot").modelsEndpoint == "https://api.moonshot.ai/v1/models",
+                   "Kimi models endpoint missing")
+        try expect(LLMRegistry.provider(id: "doubao").defaultEndpoint == "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+                   "Doubao Ark endpoint mismatch")
+    }
+
+    static func testKimiRequestPolicy() throws {
+        let p = LLMRegistry.provider(id: "moonshot")
+        let spec = LLMRequestBuilder.build(provider: p, model: p.defaultModel,
+                                           systemPrompt: "sys", userText: "hello")
+        try expect(spec.apiProtocol == .openAIChat, "Kimi should use OpenAI Chat Completions")
+        try expect(spec.body["temperature"] == nil, "Kimi K2.6 docs recommend omitting temperature")
+        let thinking = spec.body["thinking"] as? [String: String]
+        try expect(thinking?["type"] == "disabled", "Kimi correction should disable thinking")
+    }
+
+    static func testDoubaoOpenAICompatibility() throws {
+        let p = LLMRegistry.provider(id: "doubao")
+        let spec = LLMRequestBuilder.build(provider: p, model: "doubao-seed-2-1-pro-260628",
+                                           systemPrompt: "sys", userText: "hello")
+        try expect(spec.apiProtocol == .openAIChat, "Doubao should use OpenAI Chat Completions")
+        try expect(spec.headers["Authorization"] == "Bearer {API_KEY}", "Doubao bearer auth missing")
     }
 
     static func testModelCatalogParser() throws {
