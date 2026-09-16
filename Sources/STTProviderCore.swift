@@ -27,6 +27,7 @@ struct STTProvider: Identifiable, Hashable {
     let transport: STTTransport
     let authStyle: STTAuthStyle
     let languageStyle: STTLanguageStyle
+    let maxAudioBytes: Int?
     let isCustom: Bool
 
     init(id: String,
@@ -37,6 +38,7 @@ struct STTProvider: Identifiable, Hashable {
          transport: STTTransport,
          authStyle: STTAuthStyle = .bearer,
          languageStyle: STTLanguageStyle = .iso639_1,
+         maxAudioBytes: Int? = nil,
          isCustom: Bool = false) {
         self.id = id
         self.name = name
@@ -46,6 +48,7 @@ struct STTProvider: Identifiable, Hashable {
         self.transport = transport
         self.authStyle = authStyle
         self.languageStyle = languageStyle
+        self.maxAudioBytes = maxAudioBytes
         self.isCustom = isCustom
     }
 }
@@ -75,6 +78,7 @@ enum STTRegistry {
                     envKey: "DASHSCOPE_API_KEY",
                     transport: .audioChatJSON,
                     languageStyle: .iso639_1,
+                    maxAudioBytes: 10 * 1024 * 1024,
                     isCustom: true),
         STTProvider(id: "stt_custom", name: "Custom (OpenAI-compatible transcription)",
                     defaultEndpoint: "",
@@ -96,6 +100,7 @@ struct STTJSONRequestSpec {
 
 enum STTRequestBuilderError: Error {
     case unsupportedTransport
+    case audioTooLarge(limit: Int)
 }
 
 enum STTRequestBuilder {
@@ -106,6 +111,9 @@ enum STTRequestBuilder {
                           language: String) throws -> STTJSONRequestSpec {
         guard provider.transport == .audioChatJSON else {
             throw STTRequestBuilderError.unsupportedTransport
+        }
+        if let limit = provider.maxAudioBytes, audioData.count > limit {
+            throw STTRequestBuilderError.audioTooLarge(limit: limit)
         }
         _ = language // Qwen3-ASR-Flash auto-detects supported languages by default.
 
