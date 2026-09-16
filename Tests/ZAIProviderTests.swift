@@ -9,7 +9,7 @@ struct ZAIProviderTests {
         try expect(provider.apiProtocol == .openAIChat, "Z.AI must use the documented OpenAI-compatible chat protocol")
         try expect(provider.authStyle == .bearer, "Z.AI general API must use Bearer authentication")
         try expect(provider.defaultEndpoint == "https://api.z.ai/api/paas/v4/chat/completions", "Z.AI general API endpoint mismatch")
-        try expect(provider.defaultModel == "glm-5.1", "Z.AI default must use a currently documented general-API model")
+        try expect(provider.defaultModel == "glm-5.2", "Z.AI default must use the current documented general-API model")
 
         let spec = LLMRequestBuilder.build(
             provider: provider,
