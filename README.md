@@ -12,7 +12,7 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 
 - 🎙️ **Global hotkey** — default is the **Fn key alone**, hold-to-talk; toggle mode: double-tap to start, single tap to stop. Fully configurable in Settings.
 - ⚡ **Groq by default** — a single Groq API key can still power both transcription (`whisper-large-v3-turbo`) and AI correction (`llama-3.3-70b-versatile`)
-- 🔌 **Multi-provider AI correction** — presets for OpenAI, Anthropic Claude, Google Gemini, xAI Grok, Groq, OpenRouter, DeepSeek, Alibaba Qwen / Model Studio, Z.AI GLM, MiniMax, plus custom OpenAI-compatible endpoints
+- 🔌 **Multi-provider AI correction** — presets for OpenAI, Anthropic Claude, Google Gemini, xAI Grok, Groq, OpenRouter, DeepSeek, Alibaba Qwen / Model Studio, Z.AI GLM, MiniMax, Moonshot/Kimi, ByteDance Doubao/Volcengine Ark, plus custom OpenAI-compatible endpoints
 - 🔄 **Live model catalogs** — supported providers can load their current `/models` catalog directly in Settings while retaining manual Model ID entry as a fallback
 - 🖥️ **Local LLM support on macOS** — Ollama and LM Studio presets, with no API key required
 - ☁️ **Selectable cloud STT** — ElevenLabs Scribe, OpenAI, Groq Whisper, or a custom OpenAI-compatible transcription endpoint
@@ -43,7 +43,7 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 
 Provider settings are stored per provider, so switching between services does not overwrite the other providers' model or endpoint choices.
 
-API keys are resolved from the Settings UI first, then from the provider's environment variable (for example `GROQ_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, or `DASHSCOPE_API_KEY`).
+API keys are resolved from the Settings UI first, then from the provider's environment variable (for example `GROQ_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `DASHSCOPE_API_KEY`, `MOONSHOT_API_KEY`, or `ARK_API_KEY`).
 
 ```sh
 # Optional: use an environment variable instead of entering a key in Settings
@@ -52,7 +52,7 @@ export GROQ_API_KEY="gsk_..."
 
 For providers with a model catalog endpoint, click **Load Models** in Settings to fetch the currently available model IDs. You can always type a model ID manually when a provider does not expose a catalog or when you need a model that is not listed.
 
-Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints, so the full `/chat/completions` endpoint is entered in Settings for the Qwen preset.
+Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints, so the full `/chat/completions` endpoint is entered in Settings for the Qwen preset. Kimi uses the international Moonshot endpoint by default. Doubao uses Volcengine Ark's Beijing OpenAI-compatible endpoint; users can override endpoint/model for their Ark project or inference endpoint.
 
 ## Build from source
 

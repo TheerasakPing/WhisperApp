@@ -9,7 +9,9 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 - **Hotkey default:** Fn, hold-to-talk · toggle mode = เคาะ 2 ครั้งเริ่ม เคาะ 1 ครั้งหยุด (`HotkeyManager.swift`)
 - **Provider:** Groq ยังเป็นค่าเริ่มต้นและรองรับ key เดียวสำหรับ STT (`whisper-large-v3-turbo`) + correction (`llama-3.3-70b-versatile`) แต่ Settings สามารถเลือก STT และ LLM แยกกันได้แล้ว
 - **LLM architecture:** `LLMProviderCore.swift` แยก vendor / wire protocol / auth / capabilities ออกจาก persistence ใน `LLMProvider.swift`; รองรับ OpenAI-compatible Chat Completions และ Anthropic Messages โดยไม่เดาพฤติกรรมจากชื่อโมเดล
-- **LLM presets:** Groq, OpenAI, Anthropic Claude, Google Gemini, xAI Grok, OpenRouter, DeepSeek, Alibaba Qwen / Model Studio, Z.AI GLM, MiniMax, Custom; macOS มี Ollama และ LM Studio แบบ local/no-key เพิ่มด้วย
+- **LLM presets:** Groq, OpenAI, Anthropic Claude, Google Gemini, xAI Grok, OpenRouter, DeepSeek, Alibaba Qwen / Model Studio, Z.AI GLM, MiniMax, Moonshot/Kimi, ByteDance Doubao/Volcengine Ark, Custom; macOS มี Ollama และ LM Studio แบบ local/no-key เพิ่มด้วย
+- **Kimi policy:** `kimi-k2.6` ใช้ OpenAI Chat Completions, ไม่ส่ง `temperature` และส่ง `thinking: {type: disabled}` สำหรับงาน correction latency ต่ำ; model list ใช้ `/v1/models`
+- **Doubao policy:** ใช้ Ark OpenAI-compatible `/api/v3/chat/completions`, Bearer `ARK_API_KEY`, default `doubao-seed-2-1-pro-260628` และยัง override endpoint/model ได้จาก Settings
 - **Model catalog:** macOS Settings มี `Load Models` สำหรับ provider ที่มี `/models`; parser รองรับรูปแบบ `data[].id` และยังกรอก Model ID เองได้เสมอ
 - **STT presets:** ElevenLabs, OpenAI, Groq และ Custom OpenAI-compatible; vendor-specific STT เช่น Qwen ASR ยังเป็นงานเฟสถัดไป
 - **Logo:** Claude-style cream/clay paper-cut mic — mask ด้วย superellipse (n=5) เขียนด้วย Python/PIL, อย่าใช้ขอบที่ AI gen มาตรงๆ (มันเบี้ยว)

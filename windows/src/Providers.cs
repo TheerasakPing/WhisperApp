@@ -100,6 +100,13 @@ namespace WhisperWin
             new LlmProvider { Id = "minimax", Name = "MiniMax",
                 DefaultEndpoint = "https://api.minimax.io/v1/chat/completions",
                 DefaultModel = "MiniMax-M2.7", EnvKey = "MINIMAX_API_KEY", Style = LlmStyle.OpenAI },
+            new LlmProvider { Id = "moonshot", Name = "Moonshot / Kimi",
+                DefaultEndpoint = "https://api.moonshot.ai/v1/chat/completions",
+                DefaultModel = "kimi-k2.6", EnvKey = "MOONSHOT_API_KEY", Style = LlmStyle.OpenAI,
+                SupportsTemperature = false, DisableThinking = true },
+            new LlmProvider { Id = "doubao", Name = "ByteDance Doubao / Volcengine Ark",
+                DefaultEndpoint = "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+                DefaultModel = "doubao-seed-2-1-pro-260628", EnvKey = "ARK_API_KEY", Style = LlmStyle.OpenAI },
 
             new LlmProvider { Id = "custom", Name = "Custom (OpenAI-compatible)",
                 DefaultEndpoint = "", DefaultModel = "", EnvKey = "LLM_API_KEY",
