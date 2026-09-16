@@ -45,6 +45,9 @@ jobs:
       - name: Test Dictionary V2 UI boundary
         run: bash scripts/test_dictionary_v2_ui_contract.sh
 
+      - name: Test History core
+        run: bash scripts/test_history_core.sh
+
   macos-build:
     runs-on: macos-15
     steps:
