@@ -29,3 +29,13 @@ jobs:
           else
             echo 'STT provider core test not present on this branch'
           fi
+
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Windows app
+        shell: cmd
+        run: windows\build.bat
