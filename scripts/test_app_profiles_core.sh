@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT="${TMPDIR:-/tmp}/whisper-app-profile-core-tests"
 
-test -f Sources/AppProfileCore.swift || { echo 'FAIL: Sources/AppProfileCore.swift missing'; exit 1; }
+test -f "$ROOT/Sources/AppProfileCore.swift" || { echo 'FAIL: Sources/AppProfileCore.swift missing'; exit 1; }
 
-swiftc Sources/AppProfileCore.swift Tests/AppProfileCoreTests.swift -o /tmp/app-profile-core-tests
-/tmp/app-profile-core-tests
+swiftc -parse-as-library \
+  "$ROOT/Sources/AppProfileCore.swift" \
+  "$ROOT/Tests/AppProfileCoreTests.swift" \
+  -o "$OUT"
+"$OUT"
