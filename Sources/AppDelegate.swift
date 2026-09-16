@@ -15,6 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     private var settingsWindow: NSWindow?
     private var aboutWindow: NSWindow?
     private var dictionaryWindow: NSWindow?
+    private var historyWindow: NSWindow?
 
     private var toggleItem: NSMenuItem!
     private var cloudItem: NSMenuItem!
@@ -52,7 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
             .sink { [weak self] s in self?.statusItem.button?.toolTip = s }
             .store(in: &cancellables)
 
-        // Request Accessibility permission once (required for auto ⌘V paste)
+        // Request Accessibility permission once (required for auto ⌘V paste / ⌘Z undo)
         Paster.promptAccessibilityOnce()
 
         // Sparkle auto-updater (checks SUFeedURL on launch + daily)
@@ -97,6 +98,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         langParent.submenu = langMenu
         menu.addItem(langParent)
         self.langMenu = langMenu
+        menu.addItem(.separator())
+
+        let pasteLast = NSMenuItem(title: "Paste Last Transcript", action: #selector(pasteLastTranscript), keyEquivalent: "")
+        pasteLast.target = self
+        pasteLast.image = NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+        menu.addItem(pasteLast)
+
+        let undoLast = NSMenuItem(title: "Undo Last Paste", action: #selector(undoLastPaste), keyEquivalent: "")
+        undoLast.target = self
+        undoLast.image = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: nil)
+        menu.addItem(undoLast)
+
+        let history = NSMenuItem(title: "History…", action: #selector(openHistory), keyEquivalent: "")
+        history.target = self
+        history.image = NSImage(systemSymbolName: "clock.arrow.circlepath", accessibilityDescription: nil)
+        menu.addItem(history)
         menu.addItem(.separator())
 
         let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
@@ -150,6 +167,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     @objc private func toggleAction() { controller.toggle() }
     @objc private func toggleCloud() { controller.useCloudSTT.toggle(); updateStates() }
     @objc private func toggleCorrection() { controller.useCorrection.toggle(); updateStates() }
+    @objc private func pasteLastTranscript() { controller.pasteLastTranscript() }
+    @objc private func undoLastPaste() { controller.undoLastPaste() }
     @objc private func setLanguage(_ sender: NSMenuItem) {
         if let code = sender.representedObject as? String { controller.language = code }
         updateStates()
@@ -218,10 +237,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         dictionaryWindow?.makeKeyAndOrderFront(nil)
     }
 
+    @objc private func openHistory() {
+        if historyWindow == nil {
+            let w = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 640, height: 520),
+                styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+            w.title = "Whisper History"
+            w.contentView = NSHostingView(rootView: HistoryView())
+            w.isReleasedWhenClosed = false
+            w.delegate = self
+            w.center()
+            historyWindow = w
+        }
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        historyWindow?.makeKeyAndOrderFront(nil)
+    }
+
     // Return to menu-bar mode when a window closes (hide from Dock)
     func windowWillClose(_ notification: Notification) {
         let win = notification.object as? NSWindow
-        if win === settingsWindow || win === aboutWindow || win === dictionaryWindow {
+        if win === settingsWindow || win === aboutWindow || win === dictionaryWindow || win === historyWindow {
             NSApp.setActivationPolicy(.accessory)
         }
     }
