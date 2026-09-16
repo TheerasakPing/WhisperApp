@@ -15,7 +15,9 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 - **Kimi policy:** `kimi-k2.6` ใช้ OpenAI Chat Completions, ไม่ส่ง `temperature` และส่ง `thinking: {type: disabled}` สำหรับงาน correction latency ต่ำ; model list ใช้ `/v1/models`
 - **Doubao policy:** ใช้ Ark OpenAI-compatible `/api/v3/chat/completions`, Bearer `ARK_API_KEY`, default `doubao-seed-2-1-pro-260628` และยัง override endpoint/model ได้จาก Settings
 - **Model catalog:** macOS Settings มี `Load Models` สำหรับ provider ที่มี `/models`; parser รองรับรูปแบบ `data[].id` และยังกรอก Model ID เองได้เสมอ
-- **STT presets:** ElevenLabs, OpenAI, Groq และ Custom OpenAI-compatible; Qwen ASR อยู่ใน PR แยกเพื่อไม่ผูก STT กับ Responses LLM work
+- **STT architecture:** `STTProviderCore.swift` แยก transport/auth/language metadata ออกจาก persistence; `CloudTranscriptionService` route ตาม transport (`multipartTranscription` หรือ `audioChatJSON`) แทนการเช็คชื่อ vendor
+- **STT presets:** ElevenLabs, OpenAI, Groq, Alibaba Qwen3-ASR-Flash และ Custom OpenAI-compatible transcription
+- **Qwen ASR:** ใช้ `qwen3-asr-flash` ผ่าน workspace/region-specific `/compatible-mode/v1/chat/completions`, ส่ง WAV เป็น Base64 Data URI และอ่าน transcript จาก `choices[0].message.content`
 - **Windows CI:** `.github/workflows/provider-core-tests.yml` compile `windows/build.bat` บน `windows-latest`; `build.bat` ใช้ `vswhere` หา Roslyn รุ่นปัจจุบันแทนการ hard-code VS2019
 - **Logo:** Claude-style cream/clay paper-cut mic — mask ด้วย superellipse (n=5) เขียนด้วย Python/PIL, อย่าใช้ขอบที่ AI gen มาตรงๆ (มันเบี้ยว)
 - **About window:** มีแล้ว (`AboutView.swift`) — เครดิต Gamezxz + ลิงก์
@@ -24,8 +26,9 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 
 - `./run.sh` — build + เปิดแอป (dev loop)
 - `./make_dmg.sh` — build → sign → **notarize + staple อัตโนมัติ** (ต้องมี keychain profile `whisperapp-notary`, มีแล้วในเครื่องนี้)
-- Provider core regression tests: `bash scripts/test_provider_core.sh`
+- LLM provider regression tests: `bash scripts/test_provider_core.sh`
 - Responses policy regression tests: `bash scripts/test_responses_policy.sh`
+- STT provider regression tests: `bash scripts/test_stt_provider_core.sh`
 - ออกเวอร์ชันใหม่: bump `Info.plist` → `./make_dmg.sh` → `gh release create vX.Y *.dmg` → แก้ลิงก์ดาวน์โหลด + badge เวอร์ชันใน `docs/index.html` (ลิงก์ตรงไปไฟล์ DMG ไม่ใช่ releases/latest)
 
 ## เว็บโปรโมต (GitHub Pages)
@@ -38,6 +41,7 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 
 - ย้าย credential ไป Keychain (macOS) / DPAPI (Windows) พร้อม migration จากค่าเดิม
 - เพิ่ม dynamic model catalog ฝั่ง Windows ให้ parity กับ macOS
+- เพิ่ม Qwen ASR transport parity ฝั่ง Windows
 - ขยาย Responses presets เฉพาะ provider ที่เอกสารปัจจุบันรองรับและมีประโยชน์จริง
 - Submit sitemap ใน Google Search Console (user ต้องทำเอง)
 - JSON-LD `softwareVersion` + `downloadUrl` ใน `docs/index.html` ต้องอัปเดตทุกครั้งที่ออกเวอร์ชันใหม่
