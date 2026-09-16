@@ -22,11 +22,14 @@ enum LLMThinkingPolicy: String, Hashable {
 struct LLMCapabilities: Hashable {
     let supportsTemperature: Bool
     let thinkingPolicy: LLMThinkingPolicy
+    let responsesReasoningEffort: String?
 
     init(supportsTemperature: Bool = true,
-         thinkingPolicy: LLMThinkingPolicy = .none) {
+         thinkingPolicy: LLMThinkingPolicy = .none,
+         responsesReasoningEffort: String? = nil) {
         self.supportsTemperature = supportsTemperature
         self.thinkingPolicy = thinkingPolicy
+        self.responsesReasoningEffort = responsesReasoningEffort
     }
 }
 
@@ -92,7 +95,8 @@ enum LLMRegistry {
                     defaultModel: "gpt-5.6-luna",
                     modelsEndpoint: "https://api.openai.com/v1/models",
                     envKey: "OPENAI_API_KEY", apiProtocol: .openAIResponses,
-                    capabilities: LLMCapabilities(supportsTemperature: false)),
+                    capabilities: LLMCapabilities(supportsTemperature: false,
+                                                  responsesReasoningEffort: "none")),
         LLMProvider(id: "anthropic", name: "Anthropic (Claude)",
                     defaultEndpoint: "https://api.anthropic.com/v1/messages",
                     defaultModel: "claude-haiku-4-5-20251001",
@@ -114,7 +118,8 @@ enum LLMRegistry {
                     defaultModel: "grok-4.6",
                     modelsEndpoint: "https://api.x.ai/v1/models",
                     envKey: "XAI_API_KEY", apiProtocol: .openAIResponses,
-                    capabilities: LLMCapabilities(supportsTemperature: false)),
+                    capabilities: LLMCapabilities(supportsTemperature: false,
+                                                  responsesReasoningEffort: "low")),
         LLMProvider(id: "openrouter", name: "OpenRouter",
                     defaultEndpoint: "https://openrouter.ai/api/v1/chat/completions",
                     defaultModel: "google/gemini-2.0-flash-001",
@@ -136,7 +141,8 @@ enum LLMRegistry {
                     defaultEndpoint: "",
                     defaultModel: "qwen3.8-flash",
                     envKey: "DASHSCOPE_API_KEY", apiProtocol: .openAIResponses,
-                    capabilities: LLMCapabilities(supportsTemperature: false),
+                    capabilities: LLMCapabilities(supportsTemperature: false,
+                                                  responsesReasoningEffort: "none"),
                     isCustom: true),
         LLMProvider(id: "glm", name: "GLM (Z.AI)",
                     defaultEndpoint: "https://api.z.ai/api/anthropic/v1/messages",
@@ -219,6 +225,9 @@ enum LLMRequestBuilder {
                 // Text correction does not need server-side response retention.
                 "store": false,
             ]
+            if let effort = provider.capabilities.responsesReasoningEffort {
+                body["reasoning"] = ["effort": effort]
+            }
         case .anthropicMessages:
             headers["anthropic-version"] = "2023-06-01"
             body = [
