@@ -60,6 +60,24 @@ class DictationController: ObservableObject {
         stage = .transcribing
     }
 
+    func pasteLastTranscript() {
+        do {
+            guard let record = try HistoryStore.shared.latest() else {
+                status = "History is empty"
+                return
+            }
+            Paster.paste(record.finalText)
+            status = "✅ Pasted last transcript"
+        } catch {
+            status = "⚠️ Could not load history"
+        }
+    }
+
+    func undoLastPaste() {
+        Paster.undo()
+        status = "↩️ Undo sent"
+    }
+
     private func handleAudio(_ url: URL) {
         processing = true
         let request = DictationRequest(
@@ -97,6 +115,18 @@ class DictationController: ObservableObject {
                         self.status = "✅ " + snippet
                         self.stage = .done(snippet)
                         self.processing = false
+
+                        let historySource: HistorySource = request.source == .cloud ? .cloud : .local
+                        let record = HistoryRecord(
+                            rawTranscript: outcome.rawTranscript,
+                            correctedText: outcome.correctedText,
+                            finalText: final,
+                            language: request.language,
+                            source: historySource,
+                            correctionEnabled: request.correctionEnabled
+                        )
+                        // History is best-effort and must never block dictation or paste.
+                        _ = try? HistoryStore.shared.append(record)
                         Paster.paste(final)
 
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
@@ -120,26 +150,36 @@ class DictationController: ObservableObject {
     }
 }
 
-/// Copy text to clipboard and simulate ⌘V into the focused app (requires Accessibility permission)
+/// Clipboard and keyboard actions used by dictation/history (requires Accessibility for synthetic keys).
 enum Paster {
     private static var didPrompt = false
 
-    static func paste(_ text: String) {
+    static func copy(_ text: String) {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
+    }
+
+    static func paste(_ text: String) {
+        copy(text)
 
         // ไม่มีสิทธิ์ Accessibility → เก็บใน clipboard เงียบๆ ผู้ใช้กด ⌘V เอง
         // (ห้ามเด้ง dialog ตรงนี้ จะวนระหว่าง transcribe ไม่หยุด)
         guard AXIsProcessTrusted() else { return }
+        postCommandKey(CGKeyCode(kVK_ANSI_V))
+    }
 
-        // Small delay to ensure clipboard is set before simulating keystroke
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+    static func undo() {
+        guard AXIsProcessTrusted() else { return }
+        postCommandKey(CGKeyCode(kVK_ANSI_Z), delay: 0.10)
+    }
+
+    private static func postCommandKey(_ keyCode: CGKeyCode, delay: TimeInterval = 0.05) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             let src = CGEventSource(stateID: .combinedSessionState)
-            let v = CGKeyCode(kVK_ANSI_V)
-            let down = CGEvent(keyboardEventSource: src, virtualKey: v, keyDown: true)
+            let down = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: true)
             down?.flags = .maskCommand
-            let up = CGEvent(keyboardEventSource: src, virtualKey: v, keyDown: false)
+            let up = CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)
             up?.flags = .maskCommand
             down?.post(tap: .cghidEventTap)
             up?.post(tap: .cghidEventTap)
