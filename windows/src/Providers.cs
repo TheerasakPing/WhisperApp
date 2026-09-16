@@ -33,6 +33,7 @@ namespace WhisperWin
         public bool IsCustom;
         public bool SupportsTemperature = true;
         public bool DisableThinking = false;
+        public string ResponsesReasoningEffort;
 
         public override string ToString() { return Name; }
     }
@@ -75,7 +76,7 @@ namespace WhisperWin
             new LlmProvider { Id = "openai_responses", Name = "OpenAI (Responses)",
                 DefaultEndpoint = "https://api.openai.com/v1/responses",
                 DefaultModel = "gpt-5.6-luna", EnvKey = "OPENAI_API_KEY", Style = LlmStyle.Responses,
-                SupportsTemperature = false },
+                SupportsTemperature = false, ResponsesReasoningEffort = "none" },
             new LlmProvider { Id = "anthropic", Name = "Anthropic (Claude)",
                 DefaultEndpoint = "https://api.anthropic.com/v1/messages",
                 DefaultModel = "claude-haiku-4-5-20251001", EnvKey = "ANTHROPIC_API_KEY", Style = LlmStyle.Anthropic,
@@ -89,7 +90,7 @@ namespace WhisperWin
             new LlmProvider { Id = "xai_responses", Name = "xAI (Grok Responses)",
                 DefaultEndpoint = "https://api.x.ai/v1/responses",
                 DefaultModel = "grok-4.6", EnvKey = "XAI_API_KEY", Style = LlmStyle.Responses,
-                SupportsTemperature = false },
+                SupportsTemperature = false, ResponsesReasoningEffort = "low" },
             new LlmProvider { Id = "openrouter", Name = "OpenRouter",
                 DefaultEndpoint = "https://openrouter.ai/api/v1/chat/completions",
                 DefaultModel = "google/gemini-2.0-flash-001", EnvKey = "OPENROUTER_API_KEY", Style = LlmStyle.OpenAI },
@@ -104,7 +105,7 @@ namespace WhisperWin
             new LlmProvider { Id = "qwen_responses", Name = "Alibaba Qwen / Model Studio (Responses)",
                 DefaultEndpoint = "", DefaultModel = "qwen3.8-flash",
                 EnvKey = "DASHSCOPE_API_KEY", Style = LlmStyle.Responses, IsCustom = true,
-                SupportsTemperature = false },
+                SupportsTemperature = false, ResponsesReasoningEffort = "none" },
             new LlmProvider { Id = "glm", Name = "GLM (Z.AI)",
                 DefaultEndpoint = "https://api.z.ai/api/anthropic/v1/messages",
                 DefaultModel = "glm-5.2", EnvKey = "ZAI_API_KEY", Style = LlmStyle.Anthropic,
