@@ -13,6 +13,8 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 - 🎙️ **Global hotkey** — default is the **Fn key alone**, hold-to-talk; toggle mode: double-tap to start, single tap to stop. Fully configurable in Settings.
 - ⚡ **Groq by default** — a single Groq API key can still power both transcription (`whisper-large-v3-turbo`) and AI correction (`llama-3.3-70b-versatile`)
 - 🔌 **Multi-provider AI correction** — presets for OpenAI, Anthropic Claude, Google Gemini, xAI Grok, Groq, OpenRouter, DeepSeek, Alibaba Qwen / Model Studio, Z.AI GLM, MiniMax, Moonshot/Kimi, ByteDance Doubao/Volcengine Ark, plus custom OpenAI-compatible endpoints
+- 🧩 **Responses API variants** — optional OpenAI, xAI and Alibaba Qwen presets use OpenAI-compatible `/responses` without changing the legacy Chat Completions presets
+- ⚡ **Latency-aware reasoning** — text correction uses `none` reasoning for GPT-5.6 Luna/Qwen Responses and `low` for Grok 4.6, while keeping `store: false` on Responses requests
 - 🔄 **Live model catalogs** — supported providers can load their current `/models` catalog directly in Settings while retaining manual Model ID entry as a fallback
 - 🖥️ **Local LLM support on macOS** — Ollama and LM Studio presets, with no API key required
 - ☁️ **Selectable cloud STT** — ElevenLabs Scribe, OpenAI, Groq Whisper, or a custom OpenAI-compatible transcription endpoint
@@ -52,7 +54,7 @@ export GROQ_API_KEY="gsk_..."
 
 For providers with a model catalog endpoint, click **Load Models** in Settings to fetch the currently available model IDs. You can always type a model ID manually when a provider does not expose a catalog or when you need a model that is not listed.
 
-Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints, so the full `/chat/completions` endpoint is entered in Settings for the Qwen preset. Kimi uses the international Moonshot endpoint by default. Doubao uses Volcengine Ark's Beijing OpenAI-compatible endpoint; users can override endpoint/model for their Ark project or inference endpoint.
+Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints. Use the full `/chat/completions` URL for the Qwen Chat preset or the full `/compatible-mode/v1/responses` URL for Qwen Responses. Kimi uses the international Moonshot endpoint by default. Doubao uses Volcengine Ark's Beijing OpenAI-compatible endpoint; users can override endpoint/model for their Ark project or inference endpoint.
 
 ## Build from source
 
@@ -67,7 +69,10 @@ Provider-core regression tests can be run without launching the macOS app:
 
 ```bash
 bash scripts/test_provider_core.sh
+bash scripts/test_responses_policy.sh
 ```
+
+GitHub Actions also compiles the Windows port with `windows/build.bat` so C# provider parity is checked on a native Windows runner.
 
 Notarization in `make_dmg.sh` expects a keychain profile named `whisperapp-notary`
 (`xcrun notarytool store-credentials`). For a stable signature (so macOS remembers
@@ -86,11 +91,12 @@ certificate — the build scripts auto-detect it.
 - SwiftUI menu-bar app (`LSUIElement`), `NSEvent` global hotkey (`HotkeyManager.swift`)
 - `AVAudioEngine` → 16 kHz mono Int16 WAV recording
 - Separate STT and LLM provider registries
-- Capability-driven LLM request builder for OpenAI-compatible Chat Completions and Anthropic Messages
+- Capability-driven LLM request builder for OpenAI-compatible Chat Completions, OpenAI-compatible Responses, and Anthropic Messages
+- Responses parser reads typed `output[].content[].output_text` blocks and supports provider convenience `output_text` fields
 - Dynamic model catalog service for providers exposing `{ "data": [{ "id": ... }] }` model lists
-- Provider-specific model, endpoint, auth, and request-policy settings with Groq as the backward-compatible default
+- Provider-specific model, endpoint, auth, reasoning, and request-policy settings with Groq as the backward-compatible default
 - Floating `NSPanel` + SwiftUI status overlay
-- Windows port mirrors the configurable STT/LLM provider model
+- Windows port mirrors the configurable STT/LLM provider model and is compiled in CI
 - Promo site lives in `docs/` (GitHub Pages, cream/clay theme, full SEO meta)
 
 ## License
