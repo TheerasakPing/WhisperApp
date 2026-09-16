@@ -60,6 +60,9 @@ jobs:
       - name: Test App-aware Profiles core
         run: bash scripts/test_app_profiles_core.sh
 
+      - name: Test App-aware Profiles integration
+        run: bash scripts/test_app_profiles_integration.sh
+
   macos-build:
     runs-on: macos-15
     steps:
