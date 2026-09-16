@@ -21,6 +21,9 @@ jobs:
       - name: Test LLM provider core
         run: bash scripts/test_provider_core.sh
 
+      - name: Test Z.AI provider contract
+        run: bash scripts/test_zai_provider.sh
+
       - name: Test Responses reasoning policy
         run: bash scripts/test_responses_policy.sh
 
@@ -47,6 +50,12 @@ jobs:
 
       - name: Test Dictionary V2 UI boundary
         run: bash scripts/test_dictionary_v2_ui_contract.sh
+
+      - name: Test History core
+        run: bash scripts/test_history_core.sh
+
+      - name: Test History UI and undo boundary
+        run: bash scripts/test_history_ui_contract.sh
 
   macos-build:
     runs-on: macos-15
