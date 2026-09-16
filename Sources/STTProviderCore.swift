@@ -107,9 +107,10 @@ enum STTRequestBuilder {
         guard provider.transport == .audioChatJSON else {
             throw STTRequestBuilderError.unsupportedTransport
         }
+        _ = language // Qwen3-ASR-Flash auto-detects supported languages by default.
 
         let dataURI = "data:\(mimeType);base64,\(audioData.base64EncodedString())"
-        var body: [String: Any] = [
+        let body: [String: Any] = [
             "model": model,
             "messages": [[
                 "role": "user",
@@ -120,10 +121,6 @@ enum STTRequestBuilder {
             ]],
             "stream": false,
         ]
-
-        if language != "auto" && !language.isEmpty {
-            body["asr_options"] = ["language": language]
-        }
 
         var headers = ["Content-Type": "application/json"]
         switch provider.authStyle {
