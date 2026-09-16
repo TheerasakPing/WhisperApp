@@ -4,6 +4,7 @@ import Foundation
 /// many vendors expose OpenAI-compatible APIs while others use Anthropic Messages.
 enum LLMAPIProtocol: String, Hashable {
     case openAIChat
+    case openAIResponses
     case anthropicMessages
 }
 
@@ -86,6 +87,12 @@ enum LLMRegistry {
                     defaultModel: "gpt-4o-mini",
                     modelsEndpoint: "https://api.openai.com/v1/models",
                     envKey: "OPENAI_API_KEY", apiProtocol: .openAIChat),
+        LLMProvider(id: "openai_responses", name: "OpenAI (Responses)",
+                    defaultEndpoint: "https://api.openai.com/v1/responses",
+                    defaultModel: "gpt-5.6-luna",
+                    modelsEndpoint: "https://api.openai.com/v1/models",
+                    envKey: "OPENAI_API_KEY", apiProtocol: .openAIResponses,
+                    capabilities: LLMCapabilities(supportsTemperature: false)),
         LLMProvider(id: "anthropic", name: "Anthropic (Claude)",
                     defaultEndpoint: "https://api.anthropic.com/v1/messages",
                     defaultModel: "claude-haiku-4-5-20251001",
@@ -102,6 +109,12 @@ enum LLMRegistry {
                     defaultModel: "latest",
                     modelsEndpoint: "https://api.x.ai/v1/models",
                     envKey: "XAI_API_KEY", apiProtocol: .openAIChat),
+        LLMProvider(id: "xai_responses", name: "xAI (Grok Responses)",
+                    defaultEndpoint: "https://api.x.ai/v1/responses",
+                    defaultModel: "grok-4.6",
+                    modelsEndpoint: "https://api.x.ai/v1/models",
+                    envKey: "XAI_API_KEY", apiProtocol: .openAIResponses,
+                    capabilities: LLMCapabilities(supportsTemperature: false)),
         LLMProvider(id: "openrouter", name: "OpenRouter",
                     defaultEndpoint: "https://openrouter.ai/api/v1/chat/completions",
                     defaultModel: "google/gemini-2.0-flash-001",
@@ -118,6 +131,12 @@ enum LLMRegistry {
                     defaultEndpoint: "",
                     defaultModel: "qwen3.8-flash",
                     envKey: "DASHSCOPE_API_KEY", apiProtocol: .openAIChat,
+                    isCustom: true),
+        LLMProvider(id: "qwen_responses", name: "Alibaba Qwen / Model Studio (Responses)",
+                    defaultEndpoint: "",
+                    defaultModel: "qwen3.8-flash",
+                    envKey: "DASHSCOPE_API_KEY", apiProtocol: .openAIResponses,
+                    capabilities: LLMCapabilities(supportsTemperature: false),
                     isCustom: true),
         LLMProvider(id: "glm", name: "GLM (Z.AI)",
                     defaultEndpoint: "https://api.z.ai/api/anthropic/v1/messages",
@@ -190,6 +209,16 @@ enum LLMRequestBuilder {
                     ["role": "user", "content": userText],
                 ],
             ]
+        case .openAIResponses:
+            body = [
+                "model": model,
+                "input": [
+                    ["role": "system", "content": systemPrompt],
+                    ["role": "user", "content": userText],
+                ],
+                // Text correction does not need server-side response retention.
+                "store": false,
+            ]
         case .anthropicMessages:
             headers["anthropic-version"] = "2023-06-01"
             body = [
@@ -229,6 +258,18 @@ enum LLMRequestBuilder {
                   let message = choices.first?["message"] as? [String: Any],
                   let content = message["content"] as? String else { return nil }
             return content
+        case .openAIResponses:
+            // Some compatible SDKs/providers expose a convenience output_text field.
+            if let text = json["output_text"] as? String, !text.isEmpty { return text }
+            guard let output = json["output"] as? [[String: Any]] else { return nil }
+            var texts: [String] = []
+            for item in output where item["type"] as? String == "message" {
+                guard let parts = item["content"] as? [[String: Any]] else { continue }
+                for part in parts where part["type"] as? String == "output_text" {
+                    if let text = part["text"] as? String, !text.isEmpty { texts.append(text) }
+                }
+            }
+            return texts.isEmpty ? nil : texts.joined()
         case .anthropicMessages:
             guard let content = json["content"] as? [[String: Any]] else { return nil }
             return content.compactMap { $0["text"] as? String }.joined()
