@@ -1,0 +1,31 @@
+name: Provider Core Tests
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+
+jobs:
+  provider-core:
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Test LLM provider core
+        run: bash scripts/test_provider_core.sh
+
+      - name: Test STT provider core when present
+        shell: bash
+        run: |
+          if [ -f scripts/test_stt_provider_core.sh ]; then
+            bash scripts/test_stt_provider_core.sh
+          else
+            echo 'STT provider core test not present on this branch'
+          fi
