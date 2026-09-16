@@ -9,7 +9,7 @@ swiftc -parse-as-library \
 "$OUT"
 
 grep -F 'DefaultEndpoint = "https://api.z.ai/api/paas/v4/chat/completions"' "$ROOT/windows/src/Providers.cs" >/dev/null
-grep -F 'DefaultModel = "glm-5.1"' "$ROOT/windows/src/Providers.cs" >/dev/null
+grep -F 'DefaultModel = "glm-5.2"' "$ROOT/windows/src/Providers.cs" >/dev/null
 grep -F 'EnvKey = "ZAI_API_KEY", Style = LlmStyle.OpenAI' "$ROOT/windows/src/Providers.cs" >/dev/null
 
 echo "ZAIWindowsProviderContract: PASS"
