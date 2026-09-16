@@ -57,6 +57,20 @@ namespace WhisperWin
                     },
                 };
             }
+            else if (p.Style == LlmStyle.Responses)
+            {
+                body = new Dictionary<string, object>
+                {
+                    { "model", model },
+                    { "input", new object[]
+                        {
+                            new Dictionary<string, object> { { "role", "system" }, { "content", systemPrompt } },
+                            new Dictionary<string, object> { { "role", "user" }, { "content", text } },
+                        }
+                    },
+                    { "store", false },
+                };
+            }
             else
             {
                 body = new Dictionary<string, object>
@@ -82,14 +96,14 @@ namespace WhisperWin
             {
                 using (var req = new HttpRequestMessage(HttpMethod.Post, endpoint))
                 {
-                    if (p.Style == LlmStyle.OpenAI)
-                    {
-                        req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + key);
-                    }
-                    else
+                    if (p.Style == LlmStyle.Anthropic)
                     {
                         req.Headers.TryAddWithoutValidation("x-api-key", key);
                         req.Headers.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+                    }
+                    else
+                    {
+                        req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + key);
                     }
                     req.Content = new StringContent(Json.Serializer().Serialize(body), Encoding.UTF8, "application/json");
 
@@ -131,14 +145,32 @@ namespace WhisperWin
                 var message = Json.AsObject(Json.Get(choice, "message"));
                 return Json.AsString(Json.Get(message, "content"));
             }
-            else
+            if (style == LlmStyle.Responses)
             {
-                var parts = Json.AsArray(Json.Get(json, "content"))
-                    .Select(x => Json.AsString(Json.Get(Json.AsObject(x), "text")))
-                    .Where(t => t != null);
-                var joined = string.Concat(parts);
-                return joined.Length > 0 ? joined : null;
+                var convenience = Json.AsString(Json.Get(json, "output_text"));
+                if (!string.IsNullOrEmpty(convenience)) return convenience;
+
+                var texts = new List<string>();
+                foreach (var rawItem in Json.AsArray(Json.Get(json, "output")))
+                {
+                    var item = Json.AsObject(rawItem);
+                    if (Json.AsString(Json.Get(item, "type")) != "message") continue;
+                    foreach (var rawPart in Json.AsArray(Json.Get(item, "content")))
+                    {
+                        var part = Json.AsObject(rawPart);
+                        if (Json.AsString(Json.Get(part, "type")) != "output_text") continue;
+                        var text = Json.AsString(Json.Get(part, "text"));
+                        if (!string.IsNullOrEmpty(text)) texts.Add(text);
+                    }
+                }
+                return texts.Count == 0 ? null : string.Concat(texts);
             }
+
+            var parts = Json.AsArray(Json.Get(json, "content"))
+                .Select(x => Json.AsString(Json.Get(Json.AsObject(x), "text")))
+                .Where(t => t != null);
+            var joined = string.Concat(parts);
+            return joined.Length > 0 ? joined : null;
         }
     }
 }
