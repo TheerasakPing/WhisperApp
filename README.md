@@ -17,7 +17,8 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 - ⚡ **Latency-aware reasoning** — text correction uses `none` reasoning for GPT-5.6 Luna/Qwen Responses and `low` for Grok 4.6, while keeping `store: false` on Responses requests
 - 🔄 **Live model catalogs** — supported providers can load their current `/models` catalog directly in Settings while retaining manual Model ID entry as a fallback
 - 🖥️ **Local LLM support on macOS** — Ollama and LM Studio presets, with no API key required
-- ☁️ **Selectable cloud STT** — ElevenLabs Scribe, OpenAI, Groq Whisper, or a custom OpenAI-compatible transcription endpoint
+- ☁️ **Selectable cloud STT** — ElevenLabs Scribe, OpenAI, Groq Whisper, Alibaba Qwen3-ASR-Flash, or a custom OpenAI-compatible transcription endpoint
+- 🇹🇭 **Qwen3-ASR-Flash** — supports Thai and other multilingual dictation through Alibaba Model Studio's OpenAI-compatible audio-chat API
 - ✨ **AI text correction** — fixes garbled words and adds punctuation before pasting
 - 📋 **Auto-paste** into the focused app (simulates ⌘V)
 - 🌊 Live waveform + status overlay (recording → transcribing → fixing → done)
@@ -54,7 +55,7 @@ export GROQ_API_KEY="gsk_..."
 
 For providers with a model catalog endpoint, click **Load Models** in Settings to fetch the currently available model IDs. You can always type a model ID manually when a provider does not expose a catalog or when you need a model that is not listed.
 
-Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints. Use the full `/chat/completions` URL for the Qwen Chat preset or the full `/compatible-mode/v1/responses` URL for Qwen Responses. Kimi uses the international Moonshot endpoint by default. Doubao uses Volcengine Ark's Beijing OpenAI-compatible endpoint; users can override endpoint/model for their Ark project or inference endpoint.
+Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints. Use the full `/chat/completions` URL for the Qwen Chat preset, the full `/compatible-mode/v1/responses` URL for Qwen Responses, and the workspace `/compatible-mode/v1/chat/completions` URL for Qwen3-ASR-Flash. Qwen3-ASR-Flash sends the recorded WAV as a Base64 Data URI and reads the non-streaming transcript from the chat-completion response. Kimi uses the international Moonshot endpoint by default. Doubao uses Volcengine Ark's Beijing OpenAI-compatible endpoint; users can override endpoint/model for their Ark project or inference endpoint.
 
 ## Build from source
 
@@ -70,6 +71,7 @@ Provider-core regression tests can be run without launching the macOS app:
 ```bash
 bash scripts/test_provider_core.sh
 bash scripts/test_responses_policy.sh
+bash scripts/test_stt_provider_core.sh
 ```
 
 GitHub Actions also compiles the Windows port with `windows/build.bat` so C# provider parity is checked on a native Windows runner.
@@ -108,6 +110,7 @@ Run the workflow manually from **Actions → macOS ARM64 Release → Run workflo
 - SwiftUI menu-bar app (`LSUIElement`), `NSEvent` global hotkey (`HotkeyManager.swift`)
 - `AVAudioEngine` → 16 kHz mono Int16 WAV recording
 - Separate STT and LLM provider registries
+- Transport-driven STT core for multipart transcription and OpenAI-compatible audio-chat JSON
 - Capability-driven LLM request builder for OpenAI-compatible Chat Completions, OpenAI-compatible Responses, and Anthropic Messages
 - Responses parser reads typed `output[].content[].output_text` blocks and supports provider convenience `output_text` fields
 - Dynamic model catalog service for providers exposing `{ "data": [{ "id": ... }] }` model lists
