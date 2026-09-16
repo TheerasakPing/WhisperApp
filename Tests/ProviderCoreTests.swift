@@ -5,6 +5,9 @@ struct ProviderCoreTests {
     static func main() throws {
         try testRegistryCoverage()
         try testCurrentProviderDefaults()
+        try testResponsesProviderPresets()
+        try testResponsesRequestShape()
+        try testResponsesTextExtraction()
         try testKimiRequestPolicy()
         try testDoubaoOpenAICompatibility()
         try testModelCatalogParser()
@@ -22,7 +25,7 @@ struct ProviderCoreTests {
 
     static func testRegistryCoverage() throws {
         let ids = Set(LLMRegistry.all.map(\.id))
-        for id in ["openai", "anthropic", "gemini", "xai", "groq", "openrouter", "deepseek", "qwen", "glm", "minimax", "moonshot", "doubao", "custom"] {
+        for id in ["openai", "openai_responses", "anthropic", "gemini", "xai", "xai_responses", "groq", "openrouter", "deepseek", "qwen", "qwen_responses", "glm", "minimax", "moonshot", "doubao", "custom"] {
             try expect(ids.contains(id), "missing provider: \(id)")
         }
         try expect(LLMRegistry.provider(id: "groq").defaultModel == "llama-3.3-70b-versatile",
@@ -48,6 +51,51 @@ struct ProviderCoreTests {
                    "Kimi models endpoint missing")
         try expect(LLMRegistry.provider(id: "doubao").defaultEndpoint == "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
                    "Doubao Ark endpoint mismatch")
+    }
+
+    static func testResponsesProviderPresets() throws {
+        let openai = LLMRegistry.provider(id: "openai_responses")
+        try expect(openai.apiProtocol == .openAIResponses, "OpenAI Responses preset protocol mismatch")
+        try expect(openai.defaultEndpoint == "https://api.openai.com/v1/responses", "OpenAI Responses endpoint mismatch")
+        try expect(openai.defaultModel == "gpt-5.6-luna", "OpenAI Responses default should use the cost-sensitive GPT-5.6 model")
+
+        let xai = LLMRegistry.provider(id: "xai_responses")
+        try expect(xai.apiProtocol == .openAIResponses, "xAI Responses preset protocol mismatch")
+        try expect(xai.defaultEndpoint == "https://api.x.ai/v1/responses", "xAI Responses endpoint mismatch")
+        try expect(xai.defaultModel == "grok-4.6", "xAI Responses default model mismatch")
+
+        let qwen = LLMRegistry.provider(id: "qwen_responses")
+        try expect(qwen.apiProtocol == .openAIResponses, "Qwen Responses preset protocol mismatch")
+        try expect(qwen.defaultEndpoint.isEmpty, "Qwen Responses endpoint must stay workspace-specific")
+        try expect(qwen.defaultModel == "qwen3.8-flash", "Qwen Responses default model mismatch")
+    }
+
+    static func testResponsesRequestShape() throws {
+        let p = LLMRegistry.provider(id: "xai_responses")
+        let spec = LLMRequestBuilder.build(provider: p, model: p.defaultModel,
+                                           systemPrompt: "correct only", userText: "helo")
+        try expect(spec.apiProtocol == .openAIResponses, "Responses request protocol mismatch")
+        try expect((spec.body["model"] as? String) == "grok-4.6", "Responses model missing")
+        try expect((spec.body["store"] as? Bool) == false, "Responses correction requests must disable storage")
+        try expect(spec.body["temperature"] == nil, "Responses compatibility path should omit temperature")
+        let input = spec.body["input"] as? [[String: String]]
+        try expect(input?.count == 2, "Responses input should contain system and user messages")
+        try expect(input?.first?["role"] == "system", "Responses system message missing")
+        try expect(input?.last?["content"] == "helo", "Responses user input missing")
+    }
+
+    static func testResponsesTextExtraction() throws {
+        let json: [String: Any] = [
+            "output": [[
+                "type": "message",
+                "content": [
+                    ["type": "output_text", "text": "hello"],
+                    ["type": "refusal", "refusal": "ignored"],
+                ],
+            ]]
+        ]
+        try expect(LLMRequestBuilder.extractText(from: json, apiProtocol: .openAIResponses) == "hello",
+                   "Responses output_text extraction failed")
     }
 
     static func testKimiRequestPolicy() throws {
