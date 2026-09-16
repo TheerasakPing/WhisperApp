@@ -36,6 +36,9 @@ jobs:
       - name: Test dictation pipeline core
         run: bash scripts/test_dictation_pipeline_core.sh
 
+      - name: Test controller pipeline boundary
+        run: bash scripts/test_dictation_controller_pipeline_contract.sh
+
   windows-build:
     runs-on: windows-latest
     steps:
