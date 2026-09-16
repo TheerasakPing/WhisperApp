@@ -1,6 +1,6 @@
 # Whisper
 
-A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corrected text is pasted into whatever you're typing. Think Wispr Flow, powered by Groq with a single free API key.
+A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corrected text is pasted into whatever you're typing. Groq remains the default zero-friction setup, while advanced users can select separate Speech-to-Text and LLM providers.
 
 **Website:** https://gamezxz.github.io/WhisperApp/
 
@@ -11,18 +11,23 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 ## Features
 
 - 🎙️ **Global hotkey** — default is the **Fn key alone**, hold-to-talk; toggle mode: double-tap to start, single tap to stop. Fully configurable in Settings.
-- ⚡ **One key, one provider** — a single Groq API key powers both transcription (`whisper-large-v3-turbo`) and AI correction (`llama-3.3-70b-versatile`)
+- ⚡ **Groq by default** — a single Groq API key can still power both transcription (`whisper-large-v3-turbo`) and AI correction (`llama-3.3-70b-versatile`)
+- 🔌 **Multi-provider AI correction** — presets for OpenAI, Anthropic Claude, Google Gemini, xAI Grok, Groq, OpenRouter, DeepSeek, Alibaba Qwen / Model Studio, Z.AI GLM, MiniMax, plus custom OpenAI-compatible endpoints
+- 🔄 **Live model catalogs** — supported providers can load their current `/models` catalog directly in Settings while retaining manual Model ID entry as a fallback
+- 🖥️ **Local LLM support on macOS** — Ollama and LM Studio presets, with no API key required
+- ☁️ **Selectable cloud STT** — ElevenLabs Scribe, OpenAI, Groq Whisper, or a custom OpenAI-compatible transcription endpoint
 - ✨ **AI text correction** — fixes garbled words and adds punctuation before pasting
 - 📋 **Auto-paste** into the focused app (simulates ⌘V)
 - 🌊 Live waveform + status overlay (recording → transcribing → fixing → done)
-- 🔒 Key stored locally (`~/.whisperapp/` or `GROQ_API_KEY` in your shell), never bundled or shipped
-- ✅ Signed & **notarized** DMG
+- 🔒 API keys are stored locally (`~/.whisperapp/` on macOS; app config on Windows) and are never bundled with the app
+- ✅ Signed & **notarized** macOS DMG
 
 ## Requirements
 
 - macOS 13+
 - **Permissions:** Microphone + Accessibility (for auto-paste)
-- A free Groq API key from [console.groq.com](https://console.groq.com)
+- At least one configured STT provider; Groq is the default/recommended first setup
+- AI correction is optional and can use a different provider from STT
 
 ## Install
 
@@ -30,25 +35,38 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 2. Drag **Whisper** to **Applications**
 3. Open it — a mic icon appears in the menu bar
 4. **System Settings → Privacy & Security:** enable **Microphone** and **Accessibility**
-5. Click the mic icon → **Settings…** → paste your Groq API key
-6. Hold **Fn** and speak
+5. Click the mic icon → **Settings…**
+6. Configure the STT provider and, optionally, a separate AI correction provider
+7. Hold **Fn** and speak
 
-## Configure the key
+## Provider configuration
 
-The key is read from (in order): the Settings UI (saved to `~/.whisperapp/`) → shell env (`~/.zshrc`).
+Provider settings are stored per provider, so switching between services does not overwrite the other providers' model or endpoint choices.
+
+API keys are resolved from the Settings UI first, then from the provider's environment variable (for example `GROQ_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, or `DASHSCOPE_API_KEY`).
 
 ```sh
-# optional: put the key in ~/.zshrc instead of the Settings UI
+# Optional: use an environment variable instead of entering a key in Settings
 export GROQ_API_KEY="gsk_..."
 ```
+
+For providers with a model catalog endpoint, click **Load Models** in Settings to fetch the currently available model IDs. You can always type a model ID manually when a provider does not expose a catalog or when you need a model that is not listed.
+
+Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints, so the full `/chat/completions` endpoint is entered in Settings for the Qwen preset.
 
 ## Build from source
 
 ```bash
-git clone https://github.com/Gamezxz/WhisperApp
+git clone https://github.com/TheerasakPing/WhisperApp
 cd WhisperApp
 ./run.sh             # dev loop: build + launch the app
 ./make_dmg.sh        # build → sign → notarize → staple → .dmg
+```
+
+Provider-core regression tests can be run without launching the macOS app:
+
+```bash
+bash scripts/test_provider_core.sh
 ```
 
 Notarization in `make_dmg.sh` expects a keychain profile named `whisperapp-notary`
@@ -67,10 +85,12 @@ certificate — the build scripts auto-detect it.
 
 - SwiftUI menu-bar app (`LSUIElement`), `NSEvent` global hotkey (`HotkeyManager.swift`)
 - `AVAudioEngine` → 16 kHz mono Int16 WAV recording
-- STT + LLM correction via Groq's OpenAI-compatible API
+- Separate STT and LLM provider registries
+- Capability-driven LLM request builder for OpenAI-compatible Chat Completions and Anthropic Messages
+- Dynamic model catalog service for providers exposing `{ "data": [{ "id": ... }] }` model lists
+- Provider-specific model, endpoint, auth, and request-policy settings with Groq as the backward-compatible default
 - Floating `NSPanel` + SwiftUI status overlay
-- Provider registries (`STTProvider.swift`, `LLMProvider.swift`) still support other
-  OpenAI/Anthropic-compatible endpoints internally, but the Settings UI is Groq-only
+- Windows port mirrors the configurable STT/LLM provider model
 - Promo site lives in `docs/` (GitHub Pages, cream/clay theme, full SEO meta)
 
 ## License

@@ -17,10 +17,11 @@ namespace WhisperWin
         public SttStyle Style;
         public bool IsCustom;
 
-        public override string ToString() { return Name; } // shown in settings combo box
+        public override string ToString() { return Name; }
     }
 
-    /// LLM provider presets — mirrors LLMProvider.swift
+    /// LLM provider preset. Vendor metadata is separate from request capability flags
+    /// so model quirks do not leak into LlmClient as model-name checks.
     public class LlmProvider
     {
         public string Id;
@@ -30,8 +31,10 @@ namespace WhisperWin
         public string EnvKey;
         public LlmStyle Style;
         public bool IsCustom;
+        public bool SupportsTemperature = true;
+        public bool DisableThinking = false;
 
-        public override string ToString() { return Name; } // shown in settings combo box
+        public override string ToString() { return Name; }
     }
 
     public static class SttRegistry
@@ -62,27 +65,42 @@ namespace WhisperWin
     {
         public static readonly List<LlmProvider> All = new List<LlmProvider>
         {
-            new LlmProvider { Id = "deepseek", Name = "DeepSeek",
-                DefaultEndpoint = "https://api.deepseek.com/chat/completions",
-                DefaultModel = "deepseek-chat", EnvKey = "DEEPSEEK_API_KEY", Style = LlmStyle.OpenAI },
-            new LlmProvider { Id = "openai", Name = "OpenAI",
-                DefaultEndpoint = "https://api.openai.com/v1/chat/completions",
-                DefaultModel = "gpt-4o-mini", EnvKey = "OPENAI_API_KEY", Style = LlmStyle.OpenAI },
+            // USA / global
             new LlmProvider { Id = "groq", Name = "Groq",
                 DefaultEndpoint = "https://api.groq.com/openai/v1/chat/completions",
                 DefaultModel = "llama-3.3-70b-versatile", EnvKey = "GROQ_API_KEY", Style = LlmStyle.OpenAI },
+            new LlmProvider { Id = "openai", Name = "OpenAI",
+                DefaultEndpoint = "https://api.openai.com/v1/chat/completions",
+                DefaultModel = "gpt-4o-mini", EnvKey = "OPENAI_API_KEY", Style = LlmStyle.OpenAI },
+            new LlmProvider { Id = "anthropic", Name = "Anthropic (Claude)",
+                DefaultEndpoint = "https://api.anthropic.com/v1/messages",
+                DefaultModel = "claude-haiku-4-5-20251001", EnvKey = "ANTHROPIC_API_KEY", Style = LlmStyle.Anthropic,
+                SupportsTemperature = false },
+            new LlmProvider { Id = "gemini", Name = "Google Gemini",
+                DefaultEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+                DefaultModel = "gemini-3.8-flash", EnvKey = "GEMINI_API_KEY", Style = LlmStyle.OpenAI },
+            new LlmProvider { Id = "xai", Name = "xAI (Grok)",
+                DefaultEndpoint = "https://api.x.ai/v1/chat/completions",
+                DefaultModel = "latest", EnvKey = "XAI_API_KEY", Style = LlmStyle.OpenAI },
             new LlmProvider { Id = "openrouter", Name = "OpenRouter",
                 DefaultEndpoint = "https://openrouter.ai/api/v1/chat/completions",
                 DefaultModel = "google/gemini-2.0-flash-001", EnvKey = "OPENROUTER_API_KEY", Style = LlmStyle.OpenAI },
-            new LlmProvider { Id = "gemini", Name = "Google Gemini",
-                DefaultEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-                DefaultModel = "gemini-2.0-flash", EnvKey = "GEMINI_API_KEY", Style = LlmStyle.OpenAI },
-            new LlmProvider { Id = "anthropic", Name = "Anthropic (Claude)",
-                DefaultEndpoint = "https://api.anthropic.com/v1/messages",
-                DefaultModel = "claude-haiku-4-5", EnvKey = "ANTHROPIC_API_KEY", Style = LlmStyle.Anthropic },
+
+            // China / Chinese vendors
+            new LlmProvider { Id = "deepseek", Name = "DeepSeek",
+                DefaultEndpoint = "https://api.deepseek.com/chat/completions",
+                DefaultModel = "deepseek-flash", EnvKey = "DEEPSEEK_API_KEY", Style = LlmStyle.OpenAI },
+            new LlmProvider { Id = "qwen", Name = "Alibaba Qwen / Model Studio",
+                DefaultEndpoint = "", DefaultModel = "qwen3.8-flash",
+                EnvKey = "DASHSCOPE_API_KEY", Style = LlmStyle.OpenAI, IsCustom = true },
             new LlmProvider { Id = "glm", Name = "GLM (Z.AI)",
                 DefaultEndpoint = "https://api.z.ai/api/anthropic/v1/messages",
-                DefaultModel = "glm-5.2", EnvKey = "ZAI_API_KEY", Style = LlmStyle.Anthropic },
+                DefaultModel = "glm-5.2", EnvKey = "ZAI_API_KEY", Style = LlmStyle.Anthropic,
+                DisableThinking = true },
+            new LlmProvider { Id = "minimax", Name = "MiniMax",
+                DefaultEndpoint = "https://api.minimax.io/v1/chat/completions",
+                DefaultModel = "MiniMax-M2.7", EnvKey = "MINIMAX_API_KEY", Style = LlmStyle.OpenAI },
+
             new LlmProvider { Id = "custom", Name = "Custom (OpenAI-compatible)",
                 DefaultEndpoint = "", DefaultModel = "", EnvKey = "LLM_API_KEY",
                 Style = LlmStyle.OpenAI, IsCustom = true },

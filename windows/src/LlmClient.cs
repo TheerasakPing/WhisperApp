@@ -26,6 +26,7 @@ namespace WhisperWin
             var endpoint = cfg.LlmEndpoint(p);
             if (string.IsNullOrEmpty(endpoint)) return null;
             var model = cfg.LlmModel(p);
+            if (string.IsNullOrEmpty(model)) return null;
 
             string langHint;
             if (language == "th") langHint = "The text is in Thai";
@@ -48,7 +49,6 @@ namespace WhisperWin
                 body = new Dictionary<string, object>
                 {
                     { "model", model },
-                    { "temperature", 0.2 },
                     { "messages", new object[]
                         {
                             new Dictionary<string, object> { { "role", "system" }, { "content", systemPrompt } },
@@ -63,7 +63,6 @@ namespace WhisperWin
                 {
                     { "model", model },
                     { "max_tokens", 8192 },
-                    { "temperature", 0.2 },
                     { "system", systemPrompt },
                     { "messages", new object[]
                         {
@@ -71,10 +70,13 @@ namespace WhisperWin
                         }
                     },
                 };
-                // GLM enables thinking by default → disable for fast correction (parity with macOS)
-                if (model != null && model.ToLowerInvariant().Contains("glm"))
-                    body["thinking"] = new Dictionary<string, object> { { "type", "disabled" } };
             }
+
+            if (p.SupportsTemperature)
+                body["temperature"] = 0.2;
+
+            if (p.DisableThinking)
+                body["thinking"] = new Dictionary<string, object> { { "type", "disabled" } };
 
             try
             {
