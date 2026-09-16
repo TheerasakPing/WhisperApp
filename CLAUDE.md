@@ -16,20 +16,25 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 - **Kimi policy:** `kimi-k2.6` ใช้ OpenAI Chat Completions, ไม่ส่ง `temperature` และส่ง `thinking: {type: disabled}` สำหรับงาน correction latency ต่ำ; model list ใช้ `/v1/models`
 - **Doubao policy:** ใช้ Ark OpenAI-compatible `/api/v3/chat/completions`, Bearer `ARK_API_KEY`, default `doubao-seed-2-1-pro-260628` และยัง override endpoint/model ได้จาก Settings
 - **Model catalog:** macOS Settings มี `Load Models` สำหรับ provider ที่มี `/models`; parser รองรับรูปแบบ `data[].id` และยังกรอก Model ID เองได้เสมอ
-- **STT presets:** ElevenLabs, OpenAI, Groq และ Custom OpenAI-compatible; Qwen ASR อยู่ใน PR แยกเพื่อไม่ผูก STT กับ Responses LLM work
-- **CI:** `.github/workflows/provider-core-tests.yml` รัน Swift core regression, native macOS `swift build -c release`, และ compile `windows/build.bat` บน `windows-latest`; Windows build ใช้ `vswhere` หา Roslyn รุ่นปัจจุบันแทนการ hard-code VS2019
+- **STT architecture:** `STTProviderCore.swift` แยก transport/auth/language metadata ออกจาก persistence; `CloudTranscriptionService` route ตาม transport (`multipartTranscription` หรือ `audioChatJSON`) แทนการเช็คชื่อ vendor
+- **STT presets:** ElevenLabs, OpenAI, Groq, Alibaba Qwen3-ASR-Flash และ Custom OpenAI-compatible transcription
+- **Qwen ASR:** ใช้ `qwen3-asr-flash` ผ่าน workspace/region-specific `/compatible-mode/v1/chat/completions`, ส่ง WAV เป็น Base64 Data URI และอ่าน transcript จาก `choices[0].message.content`
+- **CI:** `.github/workflows/provider-core-tests.yml` รัน Swift provider/STT/Responses tests, ARM64 release contract, Dictation pipeline tests, native macOS `swift build -c release`, และ compile `windows/build.bat` บน `windows-latest`; Windows build ใช้ `vswhere` หา Roslyn รุ่นปัจจุบันแทนการ hard-code VS2019
+- **macOS ARM64 release:** `.github/workflows/macos-arm64-release.yml` รองรับ signed/notarized M1–M4 build เมื่อ repository มี Apple Developer secrets ที่ต้องใช้
 - **Logo:** Claude-style cream/clay paper-cut mic — mask ด้วย superellipse (n=5) เขียนด้วย Python/PIL, อย่าใช้ขอบที่ AI gen มาตรงๆ (มันเบี้ยว)
 - **About window:** มีแล้ว (`AboutView.swift`) — เครดิต Gamezxz + ลิงก์
 
 ## Build & Release
 
 - `./run.sh` — build + เปิดแอป (dev loop)
-- `./make_dmg.sh` — build → sign → **notarize + staple อัตโนมัติ** (ต้องมี keychain profile `whisperapp-notary`, มีแล้วในเครื่องนี้)
+- `./make_dmg.sh` — build → sign → **notarize + staple อัตโนมัติ** (ต้องมี keychain profile `whisperapp-notary`)
 - Provider core regression tests: `bash scripts/test_provider_core.sh`
 - Responses policy regression tests: `bash scripts/test_responses_policy.sh`
+- STT provider regression tests: `bash scripts/test_stt_provider_core.sh`
+- ARM64 release contract: `bash scripts/test_macos_arm64_release_config.sh`
 - Dictation pipeline regression tests: `bash scripts/test_dictation_pipeline_core.sh`
 - Controller/pipeline boundary contract: `bash scripts/test_dictation_controller_pipeline_contract.sh`
-- ออกเวอร์ชันใหม่: bump `Info.plist` → `./make_dmg.sh` → `gh release create vX.Y *.dmg` → แก้ลิงก์ดาวน์โหลด + badge เวอร์ชันใน `docs/index.html` (ลิงก์ตรงไปไฟล์ DMG ไม่ใช่ releases/latest)
+- ออกเวอร์ชันใหม่: bump `Info.plist` → `./make_dmg.sh` หรือใช้ `macOS ARM64 Release` workflow → tag release → อัปเดต site metadata
 
 ## เว็บโปรโมต (GitHub Pages)
 
@@ -51,5 +56,6 @@ macOS menu-bar dictation app (Swift) — กด Fn ค้างแล้วพ�
 - Phase 10: Meeting Mode
 - ย้าย credential ไป Keychain (macOS) / DPAPI (Windows) พร้อม migration จากค่าเดิม
 - เพิ่ม dynamic model catalog ฝั่ง Windows ให้ parity กับ macOS
+- เพิ่ม Qwen ASR transport parity ฝั่ง Windows
 - Submit sitemap ใน Google Search Console (user ต้องทำเอง)
 - JSON-LD `softwareVersion` + `downloadUrl` ใน `docs/index.html` ต้องอัปเดตทุกครั้งที่ออกเวอร์ชันใหม่
