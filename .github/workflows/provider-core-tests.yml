@@ -69,6 +69,27 @@ jobs:
       - name: Build macOS app
         run: swift build -c release
 
+      - name: Assemble ad-hoc signed test app
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x make_app.sh
+          ./make_app.sh
+          codesign --verify --deep --strict --verbose=2 Whisper.app
+          test "$(lipo -archs Whisper.app/Contents/MacOS/WhisperApp)" = "arm64"
+          ditto -c -k --sequesterRsrc --keepParent Whisper.app Whisper-main-macOS-arm64-test.zip
+          shasum -a 256 Whisper-main-macOS-arm64-test.zip > Whisper-main-macOS-arm64-test.zip.sha256
+
+      - name: Upload macOS test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Whisper-main-macOS-arm64-test
+          path: |
+            Whisper-main-macOS-arm64-test.zip
+            Whisper-main-macOS-arm64-test.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+
   windows-build:
     runs-on: windows-latest
     steps:
