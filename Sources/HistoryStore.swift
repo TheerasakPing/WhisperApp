@@ -20,9 +20,11 @@ final class HistoryStore {
         return pruned
     }
 
+    /// Persist exactly the supplied document. Time-based retention is intentionally
+    /// applied by load/append/setRetention where the caller supplies the effective `now`.
     func save(_ document: HistoryDocument) throws {
         lock.lock(); defer { lock.unlock() }
-        try saveUnlocked(HistoryPolicy.pruned(document, maxRecords: maxRecords))
+        try saveUnlocked(document)
     }
 
     @discardableResult
