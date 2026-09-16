@@ -52,8 +52,10 @@ struct HistoryView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
                             HStack {
-                                Button("Paste") { Paster.paste(record.finalText) }
-                                Button("Copy") { Paster.copy(record.finalText) }
+                                Button("Copy") {
+                                    Paster.copy(record.finalText)
+                                    message = "Copied"
+                                }
                                 Spacer()
                                 Button(role: .destructive) {
                                     delete(record)
