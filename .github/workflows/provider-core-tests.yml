@@ -21,6 +21,9 @@ jobs:
       - name: Test LLM provider core
         run: bash scripts/test_provider_core.sh
 
+      - name: Test Responses reasoning policy
+        run: bash scripts/test_responses_policy.sh
+
       - name: Test STT provider core when present
         shell: bash
         run: |
