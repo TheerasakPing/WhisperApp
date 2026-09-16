@@ -33,6 +33,9 @@ jobs:
             echo 'STT provider core test not present on this branch'
           fi
 
+      - name: Test macOS arm64 release contract
+        run: bash scripts/test_macos_arm64_release_config.sh
+
       - name: Test dictation pipeline core
         run: bash scripts/test_dictation_pipeline_core.sh
 
