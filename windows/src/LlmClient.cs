@@ -70,6 +70,8 @@ namespace WhisperWin
                     },
                     { "store", false },
                 };
+                if (!string.IsNullOrEmpty(p.ResponsesReasoningEffort))
+                    body["reasoning"] = new Dictionary<string, object> { { "effort", p.ResponsesReasoningEffort } };
             }
             else
             {
