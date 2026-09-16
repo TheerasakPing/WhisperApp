@@ -65,14 +65,16 @@ cd WhisperApp
 ./make_dmg.sh        # build → sign → notarize → staple → .dmg
 ```
 
-Provider-core regression tests can be run without launching the macOS app:
+Core regression tests can be run without launching the macOS app:
 
 ```bash
 bash scripts/test_provider_core.sh
 bash scripts/test_responses_policy.sh
+bash scripts/test_dictation_pipeline_core.sh
+bash scripts/test_dictation_controller_pipeline_contract.sh
 ```
 
-GitHub Actions also compiles the Windows port with `windows/build.bat` so C# provider parity is checked on a native Windows runner.
+GitHub Actions runs the Swift core tests, compiles the complete macOS app with `swift build -c release`, and compiles the Windows port with `windows/build.bat`.
 
 Notarization in `make_dmg.sh` expects a keychain profile named `whisperapp-notary`
 (`xcrun notarytool store-credentials`). For a stable signature (so macOS remembers
@@ -90,6 +92,8 @@ certificate — the build scripts auto-detect it.
 
 - SwiftUI menu-bar app (`LSUIElement`), `NSEvent` global hotkey (`HotkeyManager.swift`)
 - `AVAudioEngine` → 16 kHz mono Int16 WAV recording
+- `DictationController` owns recording/UI state; `DictationPipeline` owns STT selection, transcript cleanup, optional LLM correction, dictionary finalization, and temporary-audio lifetime
+- Foundation-only `DictationPipelineCore.swift` defines request/outcome/event/error types and testable text-processing policy for future History, Profiles, fallback routing, commands, and Meeting Mode
 - Separate STT and LLM provider registries
 - Capability-driven LLM request builder for OpenAI-compatible Chat Completions, OpenAI-compatible Responses, and Anthropic Messages
 - Responses parser reads typed `output[].content[].output_text` blocks and supports provider convenience `output_text` fields
