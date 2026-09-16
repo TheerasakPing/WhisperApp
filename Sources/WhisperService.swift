@@ -93,9 +93,6 @@ class WhisperService: ObservableObject {
                     completion(nil)
                 }
             }
-
-            // Remove temp file
-            try? FileManager.default.removeItem(at: fileURL)
         }
 
         do {

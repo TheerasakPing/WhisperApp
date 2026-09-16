@@ -36,6 +36,24 @@ jobs:
       - name: Test macOS arm64 release contract
         run: bash scripts/test_macos_arm64_release_config.sh
 
+      - name: Test dictation pipeline core
+        run: bash scripts/test_dictation_pipeline_core.sh
+
+      - name: Test controller pipeline boundary
+        run: bash scripts/test_dictation_controller_pipeline_contract.sh
+
+  macos-build:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build macOS app
+        run: swift build -c release
+
   windows-build:
     runs-on: windows-latest
     steps:
