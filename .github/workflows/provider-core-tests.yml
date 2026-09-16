@@ -39,6 +39,9 @@ jobs:
       - name: Test controller pipeline boundary
         run: bash scripts/test_dictation_controller_pipeline_contract.sh
 
+      - name: Test Dictionary V2 core
+        run: bash scripts/test_dictionary_v2_core.sh
+
   macos-build:
     runs-on: macos-15
     steps:
