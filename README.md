@@ -17,7 +17,8 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 - ⚡ **Latency-aware reasoning** — text correction uses `none` reasoning for GPT-5.6 Luna/Qwen Responses and `low` for Grok 4.6, while keeping `store: false` on Responses requests
 - 🔄 **Live model catalogs** — supported providers can load their current `/models` catalog directly in Settings while retaining manual Model ID entry as a fallback
 - 🖥️ **Local LLM support on macOS** — Ollama and LM Studio presets, with no API key required
-- ☁️ **Selectable cloud STT** — ElevenLabs Scribe, OpenAI, Groq Whisper, or a custom OpenAI-compatible transcription endpoint
+- ☁️ **Selectable cloud STT** — ElevenLabs Scribe, OpenAI, Groq Whisper, Alibaba Qwen3-ASR-Flash, or a custom OpenAI-compatible transcription endpoint
+- 🇹🇭 **Qwen3-ASR-Flash** — supports Thai and other multilingual dictation through Alibaba Model Studio's OpenAI-compatible audio-chat API
 - ✨ **AI text correction** — fixes garbled words and adds punctuation before pasting
 - 📋 **Auto-paste** into the focused app (simulates ⌘V)
 - 🌊 Live waveform + status overlay (recording → transcribing → fixing → done)
@@ -54,7 +55,7 @@ export GROQ_API_KEY="gsk_..."
 
 For providers with a model catalog endpoint, click **Load Models** in Settings to fetch the currently available model IDs. You can always type a model ID manually when a provider does not expose a catalog or when you need a model that is not listed.
 
-Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints. Use the full `/chat/completions` URL for the Qwen Chat preset or the full `/compatible-mode/v1/responses` URL for Qwen Responses. Kimi uses the international Moonshot endpoint by default. Doubao uses Volcengine Ark's Beijing OpenAI-compatible endpoint; users can override endpoint/model for their Ark project or inference endpoint.
+Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints. Use the full `/chat/completions` URL for the Qwen Chat preset, the full `/compatible-mode/v1/responses` URL for Qwen Responses, and the workspace `/compatible-mode/v1/chat/completions` URL for Qwen3-ASR-Flash. Qwen3-ASR-Flash sends the recorded WAV as a Base64 Data URI and reads the non-streaming transcript from the chat-completion response. Kimi uses the international Moonshot endpoint by default. Doubao uses Volcengine Ark's Beijing OpenAI-compatible endpoint; users can override endpoint/model for their Ark project or inference endpoint.
 
 ## Build from source
 
@@ -70,6 +71,8 @@ Core regression tests can be run without launching the macOS app:
 ```bash
 bash scripts/test_provider_core.sh
 bash scripts/test_responses_policy.sh
+bash scripts/test_stt_provider_core.sh
+bash scripts/test_macos_arm64_release_config.sh
 bash scripts/test_dictation_pipeline_core.sh
 bash scripts/test_dictation_controller_pipeline_contract.sh
 ```
@@ -81,11 +84,28 @@ Notarization in `make_dmg.sh` expects a keychain profile named `whisperapp-notar
 permissions across rebuilds), sign with your own **Developer ID Application**
 certificate — the build scripts auto-detect it.
 
+### macOS Apple Silicon (M1–M4) release in GitHub Actions
+
+The `macOS ARM64 Release` workflow builds a native `arm64` app on the macOS Apple Silicon runner, signs it with a **Developer ID Application** certificate, notarizes both the `.app` and `.dmg`, staples the notarization tickets, verifies Gatekeeper acceptance, and uploads:
+
+- `Whisper-<version>-macOS-arm64.dmg`
+- `Whisper-<version>-macOS-arm64.dmg.sha256`
+
+Configure these repository **Actions secrets** before running the release workflow:
+
+- `MACOS_CERTIFICATE_P12_BASE64` — Base64-encoded Developer ID Application `.p12`
+- `MACOS_CERTIFICATE_PASSWORD` — password for the `.p12`
+- `APPLE_ID` — Apple Developer account email used for notarization
+- `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password for that Apple ID
+- `APPLE_TEAM_ID` — Apple Developer Team ID
+
+Run the workflow manually from **Actions → macOS ARM64 Release → Run workflow** to produce a signed/notarized downloadable Actions artifact. Pushing a tag matching `v*` (for example `v1.3.0`) additionally creates or updates the matching GitHub Release and attaches the ARM64 DMG plus checksum.
+
 ### Release checklist
 
 1. Bump version in `Info.plist`
-2. `./make_dmg.sh`
-3. `gh release create vX.Y *.dmg`
+2. For a local Mac release, run `./make_dmg.sh`; for Apple Silicon CI release, use the `macOS ARM64 Release` workflow
+3. Push a `vX.Y` / `vX.Y.Z` tag when the ARM64 artifact should be attached to GitHub Releases
 4. Update the download link + version badge + JSON-LD (`softwareVersion`, `downloadUrl`) in `docs/index.html`
 
 ## Architecture
@@ -95,6 +115,7 @@ certificate — the build scripts auto-detect it.
 - `DictationController` owns recording/UI state; `DictationPipeline` owns STT selection, transcript cleanup, optional LLM correction, dictionary finalization, and temporary-audio lifetime
 - Foundation-only `DictationPipelineCore.swift` defines request/outcome/event/error types and testable text-processing policy for future History, Profiles, fallback routing, commands, and Meeting Mode
 - Separate STT and LLM provider registries
+- Transport-driven STT core for multipart transcription and OpenAI-compatible audio-chat JSON
 - Capability-driven LLM request builder for OpenAI-compatible Chat Completions, OpenAI-compatible Responses, and Anthropic Messages
 - Responses parser reads typed `output[].content[].output_text` blocks and supports provider convenience `output_text` fields
 - Dynamic model catalog service for providers exposing `{ "data": [{ "id": ... }] }` model lists

@@ -1,0 +1,155 @@
+name: macOS ARM64 Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  macos-arm64-release:
+    runs-on: macos-15
+    env:
+      WHISPERAPP_ARCH: arm64
+      WHISPERAPP_RELEASE_SUFFIX: macOS-arm64
+      WHISPERAPP_REQUIRE_DEVELOPER_ID: '1'
+      WHISPERAPP_NOTARY_PROFILE: whisperapp-ci-notary
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Apple Silicon runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner architecture: $(uname -m)"
+          test "$(uname -m)" = "arm64"
+          swift --version
+          xcodebuild -version
+
+      - name: Validate required release secrets
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for name in MACOS_CERTIFICATE_P12_BASE64 MACOS_CERTIFICATE_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Import Developer ID certificate
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/developer-id.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/whisperapp-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+
+          python3 - <<'PY'
+          import base64, os
+          with open(os.path.join(os.environ['RUNNER_TEMP'], 'developer-id.p12'), 'wb') as f:
+              f.write(base64.b64decode(os.environ['MACOS_CERTIFICATE_P12_BASE64']))
+          PY
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$MACOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
+
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep 'Developer ID Application'
+          echo "WHISPERAPP_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Configure Apple notarization credentials
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          xcrun notarytool store-credentials "$WHISPERAPP_NOTARY_PROFILE" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD"
+          xcrun notarytool history --keychain-profile "$WHISPERAPP_NOTARY_PROFILE" >/dev/null
+
+      - name: Build, sign and notarize ARM64 DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x make_app.sh make_dmg.sh
+          ./make_dmg.sh
+
+      - name: Verify release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_BIN="Whisper.app/Contents/MacOS/WhisperApp"
+          DMG="$(find . -maxdepth 1 -type f -name 'Whisper-*-macOS-arm64.dmg' -print -quit)"
+          test -n "$DMG"
+
+          ARCHS="$(lipo -archs "$APP_BIN")"
+          echo "App architectures: $ARCHS"
+          test "$ARCHS" = "arm64"
+
+          codesign --verify --deep --strict --verbose=2 Whisper.app
+          xcrun stapler validate Whisper.app
+          xcrun stapler validate "$DMG"
+          spctl --assess --type execute --verbose=4 Whisper.app
+
+          shasum -a 256 "$DMG" > "$DMG.sha256"
+          ls -lh "$DMG" "$DMG.sha256"
+
+      - name: Upload signed ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Whisper-macOS-arm64
+          path: |
+            Whisper-*-macOS-arm64.dmg
+            Whisper-*-macOS-arm64.dmg.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish assets to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          DMG="$(find . -maxdepth 1 -type f -name 'Whisper-*-macOS-arm64.dmg' -print -quit)"
+          SHA_FILE="$DMG.sha256"
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$DMG" "$SHA_FILE" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$DMG" "$SHA_FILE" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
+          fi
+
+      - name: Clean signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/developer-id.p12"
+          if [ -n "${WHISPERAPP_KEYCHAIN:-}" ] && [ -f "$WHISPERAPP_KEYCHAIN" ]; then
+            security delete-keychain "$WHISPERAPP_KEYCHAIN" || true
+          fi

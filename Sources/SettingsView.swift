@@ -85,15 +85,24 @@ struct SettingsView: View {
             }
 
             SecureField(sttProvider.envKey, text: $sttKey).textFieldStyle(.roundedBorder)
-            TextField("Model: \(sttProvider.defaultModel)", text: $sttModel).textFieldStyle(.roundedBorder)
-            TextField("Endpoint: \(sttProvider.defaultEndpoint)", text: $sttEndpoint).textFieldStyle(.roundedBorder)
+            TextField(sttProvider.defaultModel.isEmpty ? "Model ID" : "Model: \(sttProvider.defaultModel)",
+                      text: $sttModel)
+                .textFieldStyle(.roundedBorder)
+            TextField(sttProvider.defaultEndpoint.isEmpty ? "Endpoint URL (required)" : "Endpoint: \(sttProvider.defaultEndpoint)",
+                      text: $sttEndpoint)
+                .textFieldStyle(.roundedBorder)
 
             HStack {
                 Button("Save STT") { saveStt() }.buttonStyle(.borderedProminent)
                 if !sttMsg.isEmpty { Text(sttMsg).font(.caption) }
             }
-            Text("Leave model/endpoint blank to use the provider default. Keys are stored locally.")
-                .font(.caption2).foregroundColor(.secondary)
+            if sttProvider.id == "qwen_asr" {
+                Text("Qwen3-ASR-Flash uses a workspace/region-specific /compatible-mode/v1/chat/completions endpoint. Paste the full URL from Alibaba Model Studio.")
+                    .font(.caption2).foregroundColor(.secondary)
+            } else {
+                Text("Leave model/endpoint blank to use the provider default. Keys are stored locally.")
+                    .font(.caption2).foregroundColor(.secondary)
+            }
         }
     }
 
