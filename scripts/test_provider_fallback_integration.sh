@@ -16,7 +16,7 @@ require Sources/DictationPipelineCore.swift "fallbackToLocalSTT" "dictation requ
 require Sources/DictationPipeline.swift "request.fallbackToLocalSTT" "pipeline must attempt local STT after cloud chain exhaustion"
 require Sources/DictationController.swift "STTSettings.fallbackToLocalWhisper" "controller must pass local fallback policy into requests"
 require Sources/SettingsView.swift "ProviderFallbackSettingsView()" "Settings must include the fallback editor"
-require Sources/ProviderFallbackSettingsView.swift "Fallback 1" "fallback editor must expose ordered fallback slots"
+require Sources/ProviderFallbackSettingsView.swift 'Picker("Fallback \(index + 1)"' "fallback editor must expose ordered fallback slots"
 require Sources/ProviderFallbackSettingsView.swift "Fallback to Local Whisper" "fallback editor must expose local Whisper fallback toggle"
 
 echo "ProviderFallbackIntegration: PASS"
