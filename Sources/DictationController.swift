@@ -44,8 +44,6 @@ class DictationController: ObservableObject {
     func start() {
         guard !processing, !recorder.isRecording else { return }
 
-        // Snapshot the foreground app before recording begins. A user may switch windows
-        // while speaking; that must not change provider/profile half-way through one dictation.
         let bundleIdentifier = AppContextService.shared.currentBundleIdentifier
         capturedBundleIdentifier = bundleIdentifier
         capturedProfile = AppProfileStore.shared.resolve(bundleIdentifier: bundleIdentifier)
@@ -104,7 +102,8 @@ class DictationController: ObservableObject {
             source: useCloudSTT ? .cloud : .local,
             correctionEnabled: useCorrection,
             bundleIdentifier: bundleIdentifier,
-            profile: profile
+            profile: profile,
+            fallbackToLocalSTT: useCloudSTT && STTSettings.fallbackToLocalWhisper
         )
 
         pipeline.process(
@@ -120,7 +119,6 @@ class DictationController: ObservableObject {
                         self.status = "✨ AI correction…"
                         self.stage = .correcting
                     case .completed, .failed:
-                        // Terminal UI is driven from the Result below so success/error handling stays in one place.
                         break
                     }
                 }
@@ -145,7 +143,6 @@ class DictationController: ObservableObject {
                             source: historySource,
                             correctionEnabled: request.correctionEnabled
                         )
-                        // History is best-effort and must never block dictation or paste.
                         _ = try? HistoryStore.shared.append(record)
                         Paster.paste(final)
 
@@ -182,9 +179,6 @@ enum Paster {
 
     static func paste(_ text: String) {
         copy(text)
-
-        // ไม่มีสิทธิ์ Accessibility → เก็บใน clipboard เงียบๆ ผู้ใช้กด ⌘V เอง
-        // (ห้ามเด้ง dialog ตรงนี้ จะวนระหว่าง transcribe ไม่หยุด)
         guard AXIsProcessTrusted() else { return }
         postCommandKey(CGKeyCode(kVK_ANSI_V))
     }
@@ -206,7 +200,6 @@ enum Paster {
         }
     }
 
-    /// ถามสิทธิ์ Accessibility แค่ครั้งเดียวต่อ session (เรียกตอนเปิดแอป)
     static func promptAccessibilityOnce() {
         guard !didPrompt, !AXIsProcessTrusted() else { return }
         didPrompt = true

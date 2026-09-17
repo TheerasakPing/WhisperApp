@@ -73,21 +73,13 @@ final class DictationPipeline {
 
             removeFile(request.audioURL)
             switch result {
-            case .success(let outcome):
-                onEvent(.completed(outcome))
-            case .failure(let error):
-                onEvent(.failed(error))
+            case .success(let outcome): onEvent(.completed(outcome))
+            case .failure(let error): onEvent(.failed(error))
             }
             completion(result)
         }
 
-        onEvent(.transcribing)
-        let transcriber = request.source == .cloud ? cloudTranscriber : localTranscriber
-        transcriber.transcribe(
-            fileURL: request.audioURL,
-            language: request.language,
-            profile: request.profile
-        ) { raw in
+        func processTranscript(_ raw: String?) {
             guard let raw else {
                 finish(.failure(.transcriptionFailed))
                 return
@@ -122,13 +114,28 @@ final class DictationPipeline {
             }
 
             onEvent(.correcting)
-            self.corrector.correct(
-                text: cleaned,
-                language: request.language,
-                profile: request.profile
-            ) { corrected in
+            self.corrector.correct(text: cleaned, language: request.language, profile: request.profile) { corrected in
                 completeText(corrected, corrected ?? cleaned)
             }
+        }
+
+        onEvent(.transcribing)
+        if request.source == .local {
+            localTranscriber.transcribe(fileURL: request.audioURL, language: request.language,
+                                        profile: request.profile, completion: processTranscript)
+            return
+        }
+
+        cloudTranscriber.transcribe(fileURL: request.audioURL, language: request.language,
+                                    profile: request.profile) { raw in
+            guard raw == nil, request.fallbackToLocalSTT else {
+                processTranscript(raw)
+                return
+            }
+            self.localTranscriber.transcribe(fileURL: request.audioURL,
+                                             language: request.language,
+                                             profile: request.profile,
+                                             completion: processTranscript)
         }
     }
 }

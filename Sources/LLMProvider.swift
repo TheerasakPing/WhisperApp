@@ -5,10 +5,16 @@ import Foundation
 enum LLMSettings {
     private static let defaults = UserDefaults.standard
     private static let providerKey = "llm.provider"
+    private static let fallbackKey = "llm.fallback.providers"
 
     static var providerID: String {
         get { defaults.string(forKey: providerKey) ?? "groq" }
         set { defaults.set(newValue, forKey: providerKey) }
+    }
+
+    static var fallbackProviderIDs: [String] {
+        get { defaults.stringArray(forKey: fallbackKey) ?? [] }
+        set { defaults.set(Array(newValue.prefix(3)), forKey: fallbackKey) }
     }
 
     static var current: LLMProvider { LLMRegistry.provider(id: providerID) }
@@ -69,8 +75,6 @@ enum LLMSettings {
     static func endpointString(for p: LLMProvider) -> String {
         let custom = savedEndpoint(for: p).trimmingCharacters(in: .whitespacesAndNewlines)
         if !custom.isEmpty { return custom }
-
-        // Backward compatibility: honor DeepSeek endpoint/base variables used by older releases.
         if p.id == "deepseek" { return KeyStore.deepseekEndpoint().absoluteString }
         return p.defaultEndpoint
     }

@@ -5,10 +5,22 @@ import Foundation
 enum STTSettings {
     private static let defaults = UserDefaults.standard
     private static let providerKey = "stt.provider"
+    private static let fallbackKey = "stt.fallback.providers"
+    private static let localFallbackKey = "stt.fallback.localWhisper"
 
     static var providerID: String {
         get { defaults.string(forKey: providerKey) ?? "groq" }
         set { defaults.set(newValue, forKey: providerKey) }
+    }
+
+    static var fallbackProviderIDs: [String] {
+        get { defaults.stringArray(forKey: fallbackKey) ?? [] }
+        set { defaults.set(Array(newValue.prefix(3)), forKey: fallbackKey) }
+    }
+
+    static var fallbackToLocalWhisper: Bool {
+        get { defaults.object(forKey: localFallbackKey) == nil ? false : defaults.bool(forKey: localFallbackKey) }
+        set { defaults.set(newValue, forKey: localFallbackKey) }
     }
 
     static var current: STTProvider { STTRegistry.provider(id: providerID) }
@@ -20,7 +32,6 @@ enum STTSettings {
             let t = k.trimmingCharacters(in: .whitespacesAndNewlines)
             if !t.isEmpty { return t }
         }
-        // backward-compat: ElevenLabs was previously stored at ~/.whisperapp/elevenlabs.key
         if p.id == "elevenlabs", let k = KeyStore.elevenLabsKey() { return k }
         return ShellEnv.value(p.envKey)
     }

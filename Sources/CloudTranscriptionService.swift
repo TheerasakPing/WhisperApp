@@ -1,8 +1,7 @@
 import Foundation
 
-/// Transcribe audio via the selected cloud STT provider.
-/// Multipart transcription and audio-chat JSON are separate transports so vendor-specific
-/// request shapes do not leak into provider-name checks.
+/// Transcribe audio via the selected cloud STT provider, automatically advancing through
+/// the configured fallback chain when a provider is unavailable or a request fails.
 class CloudTranscriptionService {
     private var provider: STTProvider { STTSettings.current }
 
@@ -19,24 +18,71 @@ class CloudTranscriptionService {
     }
 
     func transcribe(fileURL: URL, language: String, profile: AppProfile?, completion: @escaping (String?) -> Void) {
-        let p = profile?.sttProviderID.map { STTRegistry.provider(id: $0) } ?? provider
-        guard let key = STTSettings.key(for: p) else {
-            print("❌ No key found for \(p.name) (configure in Settings or set env \(p.envKey))")
-            completion(nil); return
-        }
-        guard let endpoint = STTSettings.endpoint(for: p) else {
-            print("❌ Invalid endpoint for \(p.name)")
-            completion(nil); return
-        }
         guard let fileData = try? Data(contentsOf: fileURL) else {
             completion(nil); return
         }
 
+        let primaryID = profile?.sttProviderID ?? provider.id
+        let chain = ProviderFallbackPolicy.normalizedChain(
+            primaryID: primaryID,
+            fallbackIDs: STTSettings.fallbackProviderIDs
+        )
         let profileModel = profile?.sttModel?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let model = (profileModel?.isEmpty == false ? profileModel! : STTSettings.model(for: p))
+
+        ProviderFallbackRunner.run(providerIDs: chain, attempt: { [weak self] providerID, done in
+            guard let self else {
+                done(.failure(ProviderAttemptFailure(kind: .transport, message: "STT service released")))
+                return
+            }
+            guard let p = STTRegistry.all.first(where: { $0.id == providerID }) else {
+                done(.failure(ProviderAttemptFailure(kind: .invalidConfiguration,
+                                                     message: "Unknown STT provider: \(providerID)")))
+                return
+            }
+            let model: String
+            if providerID == primaryID, let profileModel, !profileModel.isEmpty {
+                model = profileModel
+            } else {
+                model = STTSettings.model(for: p)
+            }
+            self.attempt(provider: p, model: model, fileData: fileData,
+                         language: language, completion: done)
+        }, completion: { result in
+            switch result {
+            case .success(let text):
+                completion(text)
+            case .failure(let failure):
+                print("❌ STT fallback chain exhausted [\(failure.kind.rawValue)]: \(failure.message)")
+                completion(nil)
+            }
+        })
+    }
+
+    private func attempt(provider p: STTProvider,
+                         model: String,
+                         fileData: Data,
+                         language: String,
+                         completion: @escaping (Result<String, ProviderAttemptFailure>) -> Void) {
+        guard let key = STTSettings.key(for: p) else {
+            completion(.failure(ProviderAttemptFailure(
+                kind: .invalidConfiguration,
+                message: "No API key for \(p.name)"
+            )))
+            return
+        }
+        guard let endpoint = STTSettings.endpoint(for: p) else {
+            completion(.failure(ProviderAttemptFailure(
+                kind: .invalidConfiguration,
+                message: "Invalid endpoint for \(p.name)"
+            )))
+            return
+        }
         guard !model.isEmpty else {
-            print("❌ No model configured for \(p.name)")
-            completion(nil); return
+            completion(.failure(ProviderAttemptFailure(
+                kind: .invalidConfiguration,
+                message: "No model configured for \(p.name)"
+            )))
+            return
         }
 
         var req = URLRequest(url: endpoint)
@@ -47,7 +93,6 @@ class CloudTranscriptionService {
         case .multipartTranscription:
             configureMultipartRequest(&req, provider: p, key: key, model: model,
                                       fileData: fileData, language: language)
-
         case .audioChatJSON:
             do {
                 let appLanguage = Languages.find(language)?.code ?? language
@@ -62,30 +107,56 @@ class CloudTranscriptionService {
                 }
                 req.httpBody = try JSONSerialization.data(withJSONObject: spec.body)
             } catch {
-                print("❌ Could not build \(p.name) request: \(error)")
-                completion(nil); return
+                completion(.failure(ProviderAttemptFailure(
+                    kind: .invalidRequest,
+                    message: "Could not build \(p.name) request: \(error)"
+                )))
+                return
             }
         }
 
         URLSession.shared.dataTask(with: req) { data, response, error in
-            if let error = error {
-                print("❌ \(p.name) error: \(error.localizedDescription)")
-                completion(nil); return
+            if let urlError = error as? URLError {
+                completion(.failure(ProviderAttemptFailure(
+                    kind: ProviderFallbackPolicy.failureKind(urlErrorCode: urlError.code),
+                    message: "\(p.name): \(urlError.localizedDescription)"
+                )))
+                return
+            }
+            if let error {
+                completion(.failure(ProviderAttemptFailure(
+                    kind: .transport,
+                    message: "\(p.name): \(error.localizedDescription)"
+                )))
+                return
             }
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                 let detail = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                print("❌ \(p.name) HTTP \(http.statusCode): \(String(detail.prefix(500)))")
-                completion(nil); return
+                completion(.failure(ProviderAttemptFailure(
+                    kind: ProviderFallbackPolicy.failureKind(statusCode: http.statusCode),
+                    statusCode: http.statusCode,
+                    message: "\(p.name) HTTP \(http.statusCode): \(String(detail.prefix(300)))"
+                )))
+                return
             }
-            guard let data = data,
+            guard let data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let raw = STTRequestBuilder.extractText(from: json, transport: p.transport) else {
-                print("❌ \(p.name) returned an unexpected response")
-                completion(nil); return
+                completion(.failure(ProviderAttemptFailure(
+                    kind: .invalidResponse,
+                    message: "\(p.name) returned an unexpected response"
+                )))
+                return
             }
-
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            completion(trimmed.isEmpty ? nil : trimmed)
+            guard !trimmed.isEmpty else {
+                completion(.failure(ProviderAttemptFailure(
+                    kind: .invalidResponse,
+                    message: "\(p.name) returned an empty transcript"
+                )))
+                return
+            }
+            completion(.success(trimmed))
         }.resume()
     }
 
