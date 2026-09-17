@@ -36,6 +36,12 @@ jobs:
             echo 'STT provider core test not present on this branch'
           fi
 
+      - name: Test provider fallback core
+        run: bash scripts/test_provider_fallback_core.sh
+
+      - name: Test provider fallback integration
+        run: bash scripts/test_provider_fallback_integration.sh
+
       - name: Test macOS arm64 release contract
         run: bash scripts/test_macos_arm64_release_config.sh
 
