@@ -35,6 +35,8 @@ struct SettingsView: View {
                 Divider()
                 llmSection
                 Divider()
+                ProviderFallbackSettingsView()
+                Divider()
                 ProfilesView()
 
                 Text("💡 Fix words the STT keeps mis-transcribing via Dictionary…")
