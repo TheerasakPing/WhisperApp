@@ -10,6 +10,24 @@ struct DictationRequest: Equatable {
     let language: String
     let source: DictationSource
     let correctionEnabled: Bool
+    let bundleIdentifier: String?
+    let profile: AppProfile?
+
+    init(
+        audioURL: URL,
+        language: String,
+        source: DictationSource,
+        correctionEnabled: Bool,
+        bundleIdentifier: String? = nil,
+        profile: AppProfile? = nil
+    ) {
+        self.audioURL = audioURL
+        self.language = language
+        self.source = source
+        self.correctionEnabled = correctionEnabled
+        self.bundleIdentifier = bundleIdentifier
+        self.profile = profile
+    }
 }
 
 struct DictationOutcome: Equatable {

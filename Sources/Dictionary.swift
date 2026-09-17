@@ -1,24 +1,8 @@
 import Foundation
 
 /// User-maintained find→replace dictionary for words the STT keeps mis-transcribing.
-///
-/// Backed by a plain-text file at `~/.whisperapp/dictionary.txt`:
-///
-///     # one rule per line:  wrong -> right      (# = comment)
-///     เกมส์ -> Game
-///     gamezxz -> Gamezxz
-///     บิทคอย -> Bitcoin
-///
-/// Used two ways:
-///  - `hintForPrompt`: appended to the LLM correction system prompt so it knows the
-///    user's own terms (handles fuzzy/garbled cases the deterministic pass can't).
-///  - `apply(to:)`:    deterministic phrase replace as the final pass before paste,
-///    guaranteeing the user's certain corrections always land — even with correction off.
-///
-/// Matching rules:
-///  - `from` is pure ASCII  → `\b`-bounded, case-insensitive regex (English proper nouns).
-///  - `from` has non-ASCII  → exact substring, case-sensitive (Thai has no word boundaries).
-/// Rules apply in file order.
+/// Dictionary V2 is the authoritative metadata store; dictionary.txt remains the
+/// compatibility projection for older builds and global-only use.
 final class CorrectionDictionary {
     static let shared = CorrectionDictionary()
 
@@ -32,7 +16,7 @@ final class CorrectionDictionary {
 
     private init() { reload(force: true) }
 
-    // MARK: - Loading (reloads only when the file's mtime changes)
+    // MARK: - Loading (reloads only when the legacy projection mtime changes)
 
     private func reload(force: Bool) {
         let path = Self.path
@@ -55,10 +39,17 @@ final class CorrectionDictionary {
             let from = String(trimmed[..<arrow.lowerBound]).trimmingCharacters(in: .whitespaces)
             let to   = String(trimmed[arrow.upperBound...]).trimmingCharacters(in: .whitespaces)
             if from.isEmpty || to.isEmpty { continue }
-            let isASCII = from.unicodeScalars.allSatisfy { $0.isASCII }
-            out.append(Rule(from: from, to: to, isASCII: isASCII))
+            out.append(makeRule(from: from, to: to))
         }
         return out
+    }
+
+    private static func makeRule(from: String, to: String) -> Rule {
+        Rule(
+            from: from,
+            to: to,
+            isASCII: from.unicodeScalars.allSatisfy { $0.isASCII }
+        )
     }
 
     private func snapshot() -> [Rule] {
@@ -66,32 +57,48 @@ final class CorrectionDictionary {
         return r
     }
 
-    // MARK: - Public
+    private func v2Rules(bundleIdentifier: String?) -> [Rule]? {
+        guard let document = try? DictionaryV2Store.shared.load() else { return nil }
+        return DictionaryV2Codec.activeRules(document, bundleIdentifier: bundleIdentifier)
+            .map { Self.makeRule(from: $0.from, to: $0.to) }
+    }
 
-    /// Deterministic replacement applied to the final text before paste.
-    func apply(to text: String) -> String {
-        let active = snapshot()
+    private func applying(_ active: [Rule], to text: String) -> String {
         guard !active.isEmpty else { return text }
         var result = text
         for r in active {
             if r.isASCII {
-                // word-boundary, case-insensitive (escape both pattern & replacement template)
                 let pattern = "\\b" + NSRegularExpression.escapedPattern(for: r.from) + "\\b"
                 guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
                 let range = NSRange(result.startIndex..., in: result)
                 let template = NSRegularExpression.escapedTemplate(for: r.to)
                 result = re.stringByReplacingMatches(in: result, range: range, withTemplate: template)
             } else {
-                // Thai / mixed: exact substring, case-sensitive
                 result = result.replacingOccurrences(of: r.from, with: r.to)
             }
         }
         return result
     }
 
-    /// Hint appended to the LLM correction prompt. Empty string when there are no rules.
+    // MARK: - Public
+
+    /// Global compatibility path used by older callers.
+    func apply(to text: String) -> String {
+        applying(v2Rules(bundleIdentifier: nil) ?? snapshot(), to: text)
+    }
+
+    /// App-aware final replacement. Global rules always apply; app-scoped rules are added
+    /// only when their bundle identifier matches the foreground app captured for this dictation.
+    func apply(to text: String, bundleIdentifier: String?) -> String {
+        applying(v2Rules(bundleIdentifier: bundleIdentifier) ?? snapshot(), to: text)
+    }
+
     var hintForPrompt: String {
-        let active = snapshot()
+        hintForPrompt(bundleIdentifier: nil)
+    }
+
+    func hintForPrompt(bundleIdentifier: String?) -> String {
+        let active = v2Rules(bundleIdentifier: bundleIdentifier) ?? snapshot()
         guard !active.isEmpty else { return "" }
         return active.map { "- \($0.from) → \($0.to)" }.joined(separator: "\n")
     }

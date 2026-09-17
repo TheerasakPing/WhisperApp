@@ -2,14 +2,35 @@ import Foundation
 
 protocol DictationTranscribing: AnyObject {
     func transcribe(fileURL: URL, language: String, completion: @escaping (String?) -> Void)
+    func transcribe(fileURL: URL, language: String, profile: AppProfile?, completion: @escaping (String?) -> Void)
+}
+
+extension DictationTranscribing {
+    func transcribe(fileURL: URL, language: String, profile: AppProfile?, completion: @escaping (String?) -> Void) {
+        transcribe(fileURL: fileURL, language: language, completion: completion)
+    }
 }
 
 protocol DictationCorrecting: AnyObject {
     func correct(text: String, language: String, completion: @escaping (String?) -> Void)
+    func correct(text: String, language: String, profile: AppProfile?, completion: @escaping (String?) -> Void)
+}
+
+extension DictationCorrecting {
+    func correct(text: String, language: String, profile: AppProfile?, completion: @escaping (String?) -> Void) {
+        correct(text: text, language: language, completion: completion)
+    }
 }
 
 protocol DictationDictionaryApplying: AnyObject {
     func apply(to text: String) -> String
+    func apply(to text: String, bundleIdentifier: String?) -> String
+}
+
+extension DictationDictionaryApplying {
+    func apply(to text: String, bundleIdentifier: String?) -> String {
+        apply(to: text)
+    }
 }
 
 final class DictationPipeline {
@@ -62,7 +83,11 @@ final class DictationPipeline {
 
         onEvent(.transcribing)
         let transcriber = request.source == .cloud ? cloudTranscriber : localTranscriber
-        transcriber.transcribe(fileURL: request.audioURL, language: request.language) { raw in
+        transcriber.transcribe(
+            fileURL: request.audioURL,
+            language: request.language,
+            profile: request.profile
+        ) { raw in
             guard let raw else {
                 finish(.failure(.transcriptionFailed))
                 return
@@ -77,7 +102,7 @@ final class DictationPipeline {
             let completeText: (String?, String) -> Void = { corrected, candidate in
                 do {
                     let finalText = try DictationTextProcessor.finalize(candidate) {
-                        self.dictionary.apply(to: $0)
+                        self.dictionary.apply(to: $0, bundleIdentifier: request.bundleIdentifier)
                     }
                     finish(.success(DictationOutcome(
                         rawTranscript: raw,
@@ -97,7 +122,11 @@ final class DictationPipeline {
             }
 
             onEvent(.correcting)
-            self.corrector.correct(text: cleaned, language: request.language) { corrected in
+            self.corrector.correct(
+                text: cleaned,
+                language: request.language,
+                profile: request.profile
+            ) { corrected in
                 completeText(corrected, corrected ?? cleaned)
             }
         }

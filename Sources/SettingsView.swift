@@ -34,13 +34,15 @@ struct SettingsView: View {
                 sttSection
                 Divider()
                 llmSection
+                Divider()
+                ProfilesView()
 
                 Text("💡 Fix words the STT keeps mis-transcribing via Dictionary…")
                     .font(.caption2).foregroundColor(.secondary)
             }
             .padding(20)
         }
-        .frame(width: 460, height: 720)
+        .frame(width: 620, height: 820)
         .onAppear {
             loadSttFields()
             loadLlmFields()
