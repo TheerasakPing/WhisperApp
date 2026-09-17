@@ -9,6 +9,7 @@ struct AppProfileCoreTests {
         try testDisabledUnknownAndMissingAppFallBack()
         try testPartialProfileInheritsUnspecifiedValues()
         try testJSONRoundTrip()
+        try testStoreRoundTripAndResolve()
         print("AppProfileCoreTests: PASS")
     }
 
@@ -71,5 +72,22 @@ struct AppProfileCoreTests {
         let encoded = try JSONEncoder().encode(document)
         let decoded = try JSONDecoder().decode(AppProfileDocument.self, from: encoded)
         try expect(decoded == document, "profiles must round-trip through JSON persistence")
+    }
+
+    static func testStoreRoundTripAndResolve() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("whisper-profile-tests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let store = AppProfileStore(directoryURL: dir)
+        try store.save(document)
+
+        try expect(store.documentURL.lastPathComponent == "profiles-v1.json",
+                   "profile store must persist to profiles-v1.json")
+        try expect(try store.load() == document, "saved profile document must round-trip")
+        try expect(store.resolve(bundleIdentifier: "com.microsoft.VSCode")?.id == developer.id,
+                   "store should resolve enabled profiles after reload")
+        try expect(store.resolve(bundleIdentifier: "com.apple.TextEdit") == nil,
+                   "store must not resolve disabled profiles")
     }
 }

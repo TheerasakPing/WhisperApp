@@ -11,11 +11,15 @@ class TextCorrectionService: ObservableObject {
     var isAvailable: Bool { LLMSettings.isConfigured(provider) }
 
     func correct(text: String, language: String, completion: @escaping (String?) -> Void) {
+        correct(text: text, language: language, profile: nil, completion: completion)
+    }
+
+    func correct(text: String, language: String, profile: AppProfile?, completion: @escaping (String?) -> Void) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             completion(nil); return
         }
 
-        let p = provider
+        let p = profile?.llmProviderID.map { LLMRegistry.provider(id: $0) } ?? provider
         let key = LLMSettings.key(for: p)
         if p.requiresAPIKey && key == nil {
             print("❌ No key found for \(p.name) (configure in Settings or set env \(p.envKey))")
@@ -26,7 +30,8 @@ class TextCorrectionService: ObservableObject {
             completion(nil); return
         }
 
-        let model = LLMSettings.model(for: p)
+        let profileModel = profile?.llmModel?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let model = (profileModel?.isEmpty == false ? profileModel! : LLMSettings.model(for: p))
         guard !model.isEmpty else {
             print("❌ No model configured for \(p.name)")
             completion(nil); return
@@ -55,6 +60,11 @@ class TextCorrectionService: ObservableObject {
         let hint = CorrectionDictionary.shared.hintForPrompt
         if !hint.isEmpty {
             systemPrompt += "\n\nThe user's own known corrections for their speech — apply these where the meaning matches:\n" + hint
+        }
+
+        if let customPrompt = profile?.customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !customPrompt.isEmpty {
+            systemPrompt += "\n\nApplication-specific instructions:\n" + customPrompt
         }
 
         let spec = LLMRequestBuilder.build(provider: p, model: model,

@@ -28,6 +28,8 @@ class DictationController: ObservableObject {
     private let pipeline = DictationPipeline()
     private var processing = false
     private var cancellables = Set<AnyCancellable>()
+    private var capturedBundleIdentifier: String?
+    private var capturedProfile: AppProfile?
 
     init() {
         recorder.$recordedFileURL
@@ -41,12 +43,21 @@ class DictationController: ObservableObject {
 
     func start() {
         guard !processing, !recorder.isRecording else { return }
+
+        // Snapshot the foreground app before recording begins. A user may switch windows
+        // while speaking; that must not change provider/profile half-way through one dictation.
+        let bundleIdentifier = AppContextService.shared.currentBundleIdentifier
+        capturedBundleIdentifier = bundleIdentifier
+        capturedProfile = AppProfileStore.shared.resolve(bundleIdentifier: bundleIdentifier)
+
         recorder.startRecording()
         isRecording = recorder.isRecording
         if isRecording {
-            status = "Listening…"
+            status = capturedProfile.map { "Listening… · \($0.name)" } ?? "Listening…"
             stage = .recording
         } else {
+            capturedBundleIdentifier = nil
+            capturedProfile = nil
             status = "❌ Microphone unavailable"
             stage = .error("Microphone unavailable")
         }
@@ -80,11 +91,20 @@ class DictationController: ObservableObject {
 
     private func handleAudio(_ url: URL) {
         processing = true
+
+        let bundleIdentifier = capturedBundleIdentifier
+        let profile = capturedProfile
+        capturedBundleIdentifier = nil
+        capturedProfile = nil
+
+        let requestLanguage = profile?.language ?? language
         let request = DictationRequest(
             audioURL: url,
-            language: language,
+            language: requestLanguage,
             source: useCloudSTT ? .cloud : .local,
-            correctionEnabled: useCorrection
+            correctionEnabled: useCorrection,
+            bundleIdentifier: bundleIdentifier,
+            profile: profile
         )
 
         pipeline.process(

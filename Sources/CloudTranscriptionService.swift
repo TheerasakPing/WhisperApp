@@ -15,7 +15,11 @@ class CloudTranscriptionService {
     }
 
     func transcribe(fileURL: URL, language: String, completion: @escaping (String?) -> Void) {
-        let p = provider
+        transcribe(fileURL: fileURL, language: language, profile: nil, completion: completion)
+    }
+
+    func transcribe(fileURL: URL, language: String, profile: AppProfile?, completion: @escaping (String?) -> Void) {
+        let p = profile?.sttProviderID.map { STTRegistry.provider(id: $0) } ?? provider
         guard let key = STTSettings.key(for: p) else {
             print("❌ No key found for \(p.name) (configure in Settings or set env \(p.envKey))")
             completion(nil); return
@@ -28,7 +32,8 @@ class CloudTranscriptionService {
             completion(nil); return
         }
 
-        let model = STTSettings.model(for: p)
+        let profileModel = profile?.sttModel?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let model = (profileModel?.isEmpty == false ? profileModel! : STTSettings.model(for: p))
         guard !model.isEmpty else {
             print("❌ No model configured for \(p.name)")
             completion(nil); return
