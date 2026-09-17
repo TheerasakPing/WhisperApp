@@ -12,6 +12,7 @@ struct DictationRequest: Equatable {
     let correctionEnabled: Bool
     let bundleIdentifier: String?
     let profile: AppProfile?
+    let fallbackToLocalSTT: Bool
 
     init(
         audioURL: URL,
@@ -19,7 +20,8 @@ struct DictationRequest: Equatable {
         source: DictationSource,
         correctionEnabled: Bool,
         bundleIdentifier: String? = nil,
-        profile: AppProfile? = nil
+        profile: AppProfile? = nil,
+        fallbackToLocalSTT: Bool = false
     ) {
         self.audioURL = audioURL
         self.language = language
@@ -27,6 +29,7 @@ struct DictationRequest: Equatable {
         self.correctionEnabled = correctionEnabled
         self.bundleIdentifier = bundleIdentifier
         self.profile = profile
+        self.fallbackToLocalSTT = fallbackToLocalSTT
     }
 }
 
