@@ -81,10 +81,11 @@ struct AppProfileCoreTests {
 
         let store = AppProfileStore(directoryURL: dir)
         try store.save(document)
+        let loaded = try store.load()
 
         try expect(store.documentURL.lastPathComponent == "profiles-v1.json",
                    "profile store must persist to profiles-v1.json")
-        try expect(try store.load() == document, "saved profile document must round-trip")
+        try expect(loaded == document, "saved profile document must round-trip")
         try expect(store.resolve(bundleIdentifier: "com.microsoft.VSCode")?.id == developer.id,
                    "store should resolve enabled profiles after reload")
         try expect(store.resolve(bundleIdentifier: "com.apple.TextEdit") == nil,
