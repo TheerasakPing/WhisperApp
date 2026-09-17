@@ -1,8 +1,7 @@
 import Foundation
 
-/// Send raw transcription text to the selected LLM to fix typos, punctuation,
-/// and sentence structure. Provider-specific wire details are delegated to
-/// LLMRequestBuilder so this service stays vendor-neutral.
+/// Send raw transcription text through the selected LLM and configured fallback providers.
+/// Provider-specific wire details stay in LLMRequestBuilder.
 class TextCorrectionService: ObservableObject {
     @Published var isEnabled = true
     @Published var isCorrecting = false
@@ -19,24 +18,46 @@ class TextCorrectionService: ObservableObject {
             completion(nil); return
         }
 
-        let p = profile?.llmProviderID.map { LLMRegistry.provider(id: $0) } ?? provider
-        let key = LLMSettings.key(for: p)
-        if p.requiresAPIKey && key == nil {
-            print("❌ No key found for \(p.name) (configure in Settings or set env \(p.envKey))")
-            completion(nil); return
-        }
-        guard let endpoint = LLMSettings.endpoint(for: p) else {
-            print("❌ Invalid or missing endpoint for \(p.name)")
-            completion(nil); return
-        }
-
+        let primaryID = profile?.llmProviderID ?? provider.id
+        let chain = ProviderFallbackPolicy.normalizedChain(
+            primaryID: primaryID,
+            fallbackIDs: LLMSettings.fallbackProviderIDs
+        )
         let profileModel = profile?.llmModel?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let model = (profileModel?.isEmpty == false ? profileModel! : LLMSettings.model(for: p))
-        guard !model.isEmpty else {
-            print("❌ No model configured for \(p.name)")
-            completion(nil); return
-        }
+        let systemPrompt = makeSystemPrompt(language: language, profile: profile)
 
+        DispatchQueue.main.async { self.isCorrecting = true }
+        ProviderFallbackRunner.run(providerIDs: chain, attempt: { [weak self] providerID, done in
+            guard let self else {
+                done(.failure(ProviderAttemptFailure(kind: .transport, message: "Correction service released")))
+                return
+            }
+            guard let p = LLMRegistry.all.first(where: { $0.id == providerID }) else {
+                done(.failure(ProviderAttemptFailure(kind: .invalidConfiguration,
+                                                     message: "Unknown LLM provider: \(providerID)")))
+                return
+            }
+            let model: String
+            if providerID == primaryID, let profileModel, !profileModel.isEmpty {
+                model = profileModel
+            } else {
+                model = LLMSettings.model(for: p)
+            }
+            self.attempt(provider: p, model: model, systemPrompt: systemPrompt,
+                         text: text, completion: done)
+        }, completion: { [weak self] result in
+            DispatchQueue.main.async { self?.isCorrecting = false }
+            switch result {
+            case .success(let corrected):
+                completion(corrected)
+            case .failure(let failure):
+                print("❌ LLM fallback chain exhausted [\(failure.kind.rawValue)]: \(failure.message)")
+                completion(nil)
+            }
+        })
+    }
+
+    private func makeSystemPrompt(language: String, profile: AppProfile?) -> String {
         let langHint: String
         if language == "auto" {
             langHint = "The text may be in any language — keep the original language"
@@ -46,7 +67,7 @@ class TextCorrectionService: ObservableObject {
             langHint = "The text may be in any language — keep the original language"
         }
 
-        var systemPrompt = """
+        var prompt = """
         You are a text correction assistant for speech-to-text output, which often contains
         misheard words and missing punctuation.
         Your tasks:
@@ -59,12 +80,41 @@ class TextCorrectionService: ObservableObject {
 
         let hint = CorrectionDictionary.shared.hintForPrompt
         if !hint.isEmpty {
-            systemPrompt += "\n\nThe user's own known corrections for their speech — apply these where the meaning matches:\n" + hint
+            prompt += "\n\nThe user's own known corrections for their speech — apply these where the meaning matches:\n" + hint
         }
-
         if let customPrompt = profile?.customPrompt?.trimmingCharacters(in: .whitespacesAndNewlines),
            !customPrompt.isEmpty {
-            systemPrompt += "\n\nApplication-specific instructions:\n" + customPrompt
+            prompt += "\n\nApplication-specific instructions:\n" + customPrompt
+        }
+        return prompt
+    }
+
+    private func attempt(provider p: LLMProvider,
+                         model: String,
+                         systemPrompt: String,
+                         text: String,
+                         completion: @escaping (Result<String, ProviderAttemptFailure>) -> Void) {
+        let key = LLMSettings.key(for: p)
+        if p.requiresAPIKey && key == nil {
+            completion(.failure(ProviderAttemptFailure(
+                kind: .invalidConfiguration,
+                message: "No API key for \(p.name)"
+            )))
+            return
+        }
+        guard let endpoint = LLMSettings.endpoint(for: p) else {
+            completion(.failure(ProviderAttemptFailure(
+                kind: .invalidConfiguration,
+                message: "Invalid endpoint for \(p.name)"
+            )))
+            return
+        }
+        guard !model.isEmpty else {
+            completion(.failure(ProviderAttemptFailure(
+                kind: .invalidConfiguration,
+                message: "No model configured for \(p.name)"
+            )))
+            return
         }
 
         let spec = LLMRequestBuilder.build(provider: p, model: model,
@@ -72,53 +122,76 @@ class TextCorrectionService: ObservableObject {
         var req = URLRequest(url: endpoint)
         req.httpMethod = "POST"
         req.timeoutInterval = 60
-
         for (name, template) in spec.headers {
             let value: String
             if template.contains("{API_KEY}") {
-                guard let key = key else { continue }
+                guard let key else {
+                    completion(.failure(ProviderAttemptFailure(
+                        kind: .invalidConfiguration,
+                        message: "No API key for \(p.name)"
+                    )))
+                    return
+                }
                 value = template.replacingOccurrences(of: "{API_KEY}", with: key)
             } else {
                 value = template
             }
             req.setValue(value, forHTTPHeaderField: name)
         }
-
         guard let httpBody = try? JSONSerialization.data(withJSONObject: spec.body) else {
-            completion(nil); return
+            completion(.failure(ProviderAttemptFailure(
+                kind: .invalidRequest,
+                message: "Could not encode \(p.name) request"
+            )))
+            return
         }
         req.httpBody = httpBody
-
-        DispatchQueue.main.async { self.isCorrecting = true }
         let apiProtocol = spec.apiProtocol
 
-        URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
-            DispatchQueue.main.async { self?.isCorrecting = false }
-
-            if let error = error {
-                print("❌ Correction (\(p.name)) error: \(error.localizedDescription)")
-                completion(nil); return
+        URLSession.shared.dataTask(with: req) { data, response, error in
+            if let urlError = error as? URLError {
+                completion(.failure(ProviderAttemptFailure(
+                    kind: ProviderFallbackPolicy.failureKind(urlErrorCode: urlError.code),
+                    message: "\(p.name): \(urlError.localizedDescription)"
+                )))
+                return
+            }
+            if let error {
+                completion(.failure(ProviderAttemptFailure(
+                    kind: .transport,
+                    message: "\(p.name): \(error.localizedDescription)"
+                )))
+                return
             }
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                 let detail = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                print("❌ Correction (\(p.name)) HTTP \(http.statusCode): \(String(detail.prefix(500)))")
-                completion(nil); return
+                completion(.failure(ProviderAttemptFailure(
+                    kind: ProviderFallbackPolicy.failureKind(statusCode: http.statusCode),
+                    statusCode: http.statusCode,
+                    message: "\(p.name) HTTP \(http.statusCode): \(String(detail.prefix(300)))"
+                )))
+                return
             }
-            guard let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                print("❌ Correction (\(p.name)): could not parse response")
-                completion(nil); return
+            guard let data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let raw = LLMRequestBuilder.extractText(from: json, apiProtocol: apiProtocol) else {
+                completion(.failure(ProviderAttemptFailure(
+                    kind: .invalidResponse,
+                    message: "\(p.name) returned an unexpected response"
+                )))
+                return
             }
-
-            guard let raw = LLMRequestBuilder.extractText(from: json, apiProtocol: apiProtocol) else {
-                print("❌ Correction (\(p.name)) unexpected response: \(json)")
-                completion(nil); return
-            }
-
             let cleaned = raw
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-            completion(cleaned.isEmpty ? nil : cleaned)
+            guard !cleaned.isEmpty else {
+                completion(.failure(ProviderAttemptFailure(
+                    kind: .invalidResponse,
+                    message: "\(p.name) returned empty correction text"
+                )))
+                return
+            }
+            completion(.success(cleaned))
         }.resume()
     }
 }
