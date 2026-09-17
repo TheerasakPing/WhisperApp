@@ -14,7 +14,9 @@ require Sources/CloudTranscriptionService.swift "ProviderFallbackRunner.run" "cl
 require Sources/TextCorrectionService.swift "ProviderFallbackRunner.run" "LLM correction must run the configured provider chain"
 require Sources/DictationPipelineCore.swift "fallbackToLocalSTT" "dictation request must carry local STT fallback policy"
 require Sources/DictationPipeline.swift "request.fallbackToLocalSTT" "pipeline must attempt local STT after cloud chain exhaustion"
-require Sources/SettingsView.swift "Fallback 1" "Settings must expose STT/LLM fallback configuration"
-require Sources/SettingsView.swift "Fallback to Local Whisper" "Settings must expose local Whisper fallback toggle"
+require Sources/DictationController.swift "STTSettings.fallbackToLocalWhisper" "controller must pass local fallback policy into requests"
+require Sources/SettingsView.swift "ProviderFallbackSettingsView()" "Settings must include the fallback editor"
+require Sources/ProviderFallbackSettingsView.swift "Fallback 1" "fallback editor must expose ordered fallback slots"
+require Sources/ProviderFallbackSettingsView.swift "Fallback to Local Whisper" "fallback editor must expose local Whisper fallback toggle"
 
 echo "ProviderFallbackIntegration: PASS"
