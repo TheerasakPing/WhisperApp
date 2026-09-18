@@ -38,12 +38,16 @@ struct ThaiEnglishMixedModeTests {
         let input = "ช่วย update firmware ของ ESP32-S3 แล้ว push ขึ้น GitHub ผ่าน MQTT"
         let protected = ThaiEnglishMixedMode.protectLatinTerms(in: input)
 
-        try expect(protected.terms == ["update", "firmware", "ESP32-S3", "push", "GitHub", "MQTT"],
-                   "mixed mode must protect English words and technical identifiers in order")
+        try expect(protected.terms == ["ESP32-S3", "GitHub", "MQTT"],
+                   "mixed mode must shield technical/proper identifiers without hiding normal English words")
         for term in protected.terms {
             try expect(!protected.text.contains(term),
-                       "protected text must hide original Latin term: \(term)")
+                       "protected text must hide original technical term: \(term)")
         }
+        try expect(protected.text.contains("update") &&
+                   protected.text.contains("firmware") &&
+                   protected.text.contains("push"),
+                   "normal English words must remain visible so the correction model can fix them")
         try expect(protected.text.contains("ช่วย") && protected.text.contains("แล้ว"),
                    "Thai text must remain available to the correction model")
     }
