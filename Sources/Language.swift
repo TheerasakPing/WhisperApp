@@ -15,8 +15,14 @@ struct Language {
 enum Languages {
     /// Pseudo-entry: auto-detection (no language code sent to the STT).
     static let auto = Language(code: "auto", name: "Auto-detect", iso3: "")
+    static let thaiEnglishMixed = Language(
+        code: "th-en",
+        name: ThaiEnglishMixedMode.displayName,
+        iso3: ""
+    )
 
     static let all: [Language] = [
+        thaiEnglishMixed,
         .init(code: "en", name: "English",     iso3: "eng"),
         .init(code: "th", name: "Thai",        iso3: "tha"),
         .init(code: "zh", name: "Chinese",     iso3: "zho"),

@@ -9,8 +9,8 @@ class CloudTranscriptionService {
 
     private func langCode(_ language: String, style: STTLanguageStyle) -> String? {
         guard let lang = Languages.find(language) else { return nil }
-        if lang.code == "auto" { return nil }
-        return style == .iso639_3 ? lang.iso3 : lang.code
+        let normalCode = style == .iso639_3 ? lang.iso3 : lang.code
+        return ThaiEnglishMixedMode.cloudLanguageCode(language: lang.code, normalCode: normalCode)
     }
 
     func transcribe(fileURL: URL, language: String, completion: @escaping (String?) -> Void) {
@@ -95,7 +95,7 @@ class CloudTranscriptionService {
                                       fileData: fileData, language: language)
         case .audioChatJSON:
             do {
-                let appLanguage = Languages.find(language)?.code ?? language
+                let appLanguage = ThaiEnglishMixedMode.cloudLanguageCode(language: language) ?? "auto"
                 let spec = try STTRequestBuilder.buildJSON(provider: p,
                                                            model: model,
                                                            audioData: fileData,

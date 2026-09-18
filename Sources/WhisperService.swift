@@ -46,11 +46,12 @@ class WhisperService: ObservableObject {
 
         // Note: --print-colors is a boolean flag — passing "0" makes whisper treat it
         // as an input file ("error: input file not found '0'"). Skipping it entirely.
+        let whisperLanguage = ThaiEnglishMixedMode.localWhisperLanguage(language: language)
         let args = [
             "-m", modelPath,
             "-f", fileURL.path,
-            "-nt",                 // no timestamps
-            "-l", language         // supports "auto" natively (whisper defaults to en if omitted)
+            "-nt",                         // no timestamps
+            "-l", whisperLanguage          // mixed mode maps the app pseudo-code to Whisper auto-detect
         ]
 
         process.arguments = args

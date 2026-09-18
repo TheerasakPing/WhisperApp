@@ -24,7 +24,15 @@ class TextCorrectionService: ObservableObject {
             fallbackIDs: LLMSettings.fallbackProviderIDs
         )
         let profileModel = profile?.llmModel?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let systemPrompt = makeSystemPrompt(language: language, profile: profile)
+        let mixedProtection = ThaiEnglishMixedMode.isEnabled(language: language)
+            ? ThaiEnglishMixedMode.protectLatinTerms(in: text)
+            : nil
+        let correctionText = mixedProtection?.text ?? text
+        let systemPrompt = makeSystemPrompt(
+            language: language,
+            profile: profile,
+            protectedTermCount: mixedProtection?.terms.count ?? 0
+        )
 
         DispatchQueue.main.async { self.isCorrecting = true }
         ProviderFallbackRunner.run(providerIDs: chain, attempt: { [weak self] providerID, done in
@@ -44,12 +52,12 @@ class TextCorrectionService: ObservableObject {
                 model = LLMSettings.model(for: p)
             }
             self.attempt(provider: p, model: model, systemPrompt: systemPrompt,
-                         text: text, completion: done)
+                         text: correctionText, completion: done)
         }, completion: { [weak self] result in
             DispatchQueue.main.async { self?.isCorrecting = false }
             switch result {
             case .success(let corrected):
-                completion(corrected)
+                completion(mixedProtection?.restore(in: corrected) ?? corrected)
             case .failure(let failure):
                 print("❌ LLM fallback chain exhausted [\(failure.kind.rawValue)]: \(failure.message)")
                 completion(nil)
@@ -57,9 +65,15 @@ class TextCorrectionService: ObservableObject {
         })
     }
 
-    private func makeSystemPrompt(language: String, profile: AppProfile?) -> String {
+    private func makeSystemPrompt(
+        language: String,
+        profile: AppProfile?,
+        protectedTermCount: Int
+    ) -> String {
         let langHint: String
-        if language == "auto" {
+        if ThaiEnglishMixedMode.isEnabled(language: language) {
+            langHint = "The text uses natural Thai-English code-switching — preserve both languages"
+        } else if language == "auto" {
             langHint = "The text may be in any language — keep the original language"
         } else if let name = Languages.find(language)?.name {
             langHint = "The text is in \(name)"
@@ -77,6 +91,12 @@ class TextCorrectionService: ObservableObject {
         - Return ONLY the corrected text — no explanations, no quotation marks
         \(langHint)
         """
+
+        if ThaiEnglishMixedMode.isEnabled(language: language) {
+            prompt += "\n\n" + ThaiEnglishMixedMode.correctionInstructions(
+                protectedTermCount: protectedTermCount
+            )
+        }
 
         let hint = CorrectionDictionary.shared.hintForPrompt
         if !hint.isEmpty {

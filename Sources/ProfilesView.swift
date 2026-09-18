@@ -72,6 +72,7 @@ struct ProfilesView: View {
                             Picker("Language", selection: optionalStringBinding($profile.language)) {
                                 Text("Language: Inherit").tag("")
                                 Text("Auto").tag("auto")
+                                Text("Thai + English (Mixed)").tag("th-en")
                                 Text("Thai").tag("th")
                                 Text("English").tag("en")
                             }
