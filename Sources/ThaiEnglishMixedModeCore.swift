@@ -49,22 +49,47 @@ enum ThaiEnglishMixedMode {
 
         let fullRange = NSRange(text.startIndex..., in: text)
         let matches = regex.matches(in: text, range: fullRange)
-        guard !matches.isEmpty else {
+
+        let protectedMatches: [(match: NSTextCheckingResult, term: String)] = matches.compactMap { match in
+            guard let range = Range(match.range, in: text) else { return nil }
+            let term = String(text[range])
+            return shouldProtectLatinTerm(term) ? (match, term) : nil
+        }
+        guard !protectedMatches.isEmpty else {
             return ThaiEnglishProtectedText(text: text, terms: [])
         }
 
-        let terms: [String] = matches.compactMap { match in
-            guard let range = Range(match.range, in: text) else { return nil }
-            return String(text[range])
-        }
-
+        let terms = protectedMatches.map(\.term)
         var protectedText = text
-        for (index, match) in matches.enumerated().reversed() {
-            guard let range = Range(match.range, in: protectedText) else { continue }
+        for (index, entry) in protectedMatches.enumerated().reversed() {
+            guard let range = Range(entry.match.range, in: protectedText) else { continue }
             protectedText.replaceSubrange(range, with: "⟪\(index)⟫")
         }
 
         return ThaiEnglishProtectedText(text: protectedText, terms: terms)
+    }
+
+    private static func shouldProtectLatinTerm(_ term: String) -> Bool {
+        let scalars = term.unicodeScalars
+        if scalars.contains(where: { CharacterSet.decimalDigits.contains($0) }) {
+            return true
+        }
+        if term.rangeOfCharacter(from: CharacterSet(charactersIn: "._+/#:-")) != nil {
+            return true
+        }
+
+        let letters = term.filter { $0.isLetter }
+        let uppercaseCount = letters.filter { $0.isUppercase }.count
+        if uppercaseCount >= 2 {
+            return true
+        }
+
+        // Protect camel/mixed-case identifiers such as GitHub or iPhone, but keep normal
+        // lowercase English words editable so the LLM can still repair STT spelling errors.
+        if term.dropFirst().contains(where: { $0.isUppercase }) {
+            return true
+        }
+        return false
     }
 
     static func correctionInstructions(protectedTermCount: Int) -> String {
