@@ -42,6 +42,12 @@ jobs:
       - name: Test provider fallback integration
         run: bash scripts/test_provider_fallback_integration.sh
 
+      - name: Test Thai-English mixed mode core
+        run: bash scripts/test_thai_english_mixed_core.sh
+
+      - name: Test Thai-English mixed mode integration
+        run: bash scripts/test_thai_english_mixed_integration.sh
+
       - name: Test macOS arm64 release contract
         run: bash scripts/test_macos_arm64_release_config.sh
 
