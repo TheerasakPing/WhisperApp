@@ -14,6 +14,7 @@ struct MeetingCoreTests {
         try testDocumentOrdering()
         try testSourceLabelledTranscript()
         try testChunkPolicy()
+        try testPlainTextAndJSONExport()
         print("MeetingCoreTests: PASS")
     }
 
@@ -77,6 +78,23 @@ struct MeetingCoreTests {
                    "first chunk must be 10 minutes at 16 kHz")
         try expect(chunks[2].length == 16000 * 60 * 3,
                    "last chunk must contain the remaining duration")
+    }
+
+    static func testPlainTextAndJSONExport() throws {
+        let session = MeetingSession(
+            title: "Export Test",
+            transcript: "[You] hello",
+            notesMarkdown: "## Summary\nhello",
+            source: .cloud
+        )
+        let text = MeetingPlainText.export(session)
+        try expect(text.contains("Export Test") && text.contains("[You] hello"),
+                   "plain text export must include title and transcript")
+
+        let data = try MeetingJSON.export(session)
+        let decoded = try JSONDecoder().decode(MeetingSession.self, from: data)
+        try expect(decoded.id == session.id && decoded.transcript == session.transcript,
+                   "JSON export must round-trip the meeting session")
     }
 
     static func testDocumentOrdering() throws {
