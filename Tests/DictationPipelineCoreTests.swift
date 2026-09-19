@@ -46,6 +46,7 @@ struct DictationPipelineCoreTests {
         try testCloudPipelineCorrectsThenAppliesDictionary()
         try testLocalPipelineSkipsCorrectionWhenDisabled()
         try testCorrectionFailureFallsBackToCleanTranscript()
+        try testVoiceCommandsRunBeforeCorrection()
         try testTranscriptionFailureCleansUpOnce()
         print("DictationPipelineCoreTests: PASS")
     }
@@ -183,6 +184,36 @@ struct DictationPipelineCoreTests {
 
         try expect(outcome?.correctedText == nil, "nil correction should stay nil in outcome")
         try expect(outcome?.finalText == "hello world", "nil correction should fall back to cleaned transcript")
+    }
+
+    static func testVoiceCommandsRunBeforeCorrection() throws {
+        let cloud = FakeTranscriber("hello new line world")
+        let local = FakeTranscriber("unused")
+        let corrector = FakeCorrector("hello\nworld")
+        let dictionary = FakeDictionary()
+        var outcome: DictationOutcome?
+        let pipeline = DictationPipeline(
+            cloudTranscriber: cloud,
+            localTranscriber: local,
+            corrector: corrector,
+            dictionary: dictionary,
+            removeFile: { _ in }
+        )
+        let request = DictationRequest(
+            audioURL: URL(fileURLWithPath: "/tmp/voice-command.wav"),
+            language: "en",
+            source: .cloud,
+            correctionEnabled: true
+        )
+
+        pipeline.process(request, onEvent: { _ in }) { result in
+            if case .success(let value) = result { outcome = value }
+        }
+
+        try expect(corrector.input == "hello\nworld",
+                   "voice commands must be applied before AI correction")
+        try expect(outcome?.finalText == "hello\nworld",
+                   "formatted command output must survive the pipeline")
     }
 
     static func testTranscriptionFailureCleansUpOnce() throws {
