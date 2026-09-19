@@ -38,6 +38,7 @@ final class DictationPipeline {
     private let localTranscriber: DictationTranscribing
     private let corrector: DictationCorrecting
     private let dictionary: DictationDictionaryApplying
+    private let snippetApply: (String) -> String
     private let removeFile: (URL) -> Void
 
     init(
@@ -45,12 +46,14 @@ final class DictationPipeline {
         localTranscriber: DictationTranscribing,
         corrector: DictationCorrecting,
         dictionary: DictationDictionaryApplying,
+        snippetApply: @escaping (String) -> String = { $0 },
         removeFile: @escaping (URL) -> Void = { url in try? FileManager.default.removeItem(at: url) }
     ) {
         self.cloudTranscriber = cloudTranscriber
         self.localTranscriber = localTranscriber
         self.corrector = corrector
         self.dictionary = dictionary
+        self.snippetApply = snippetApply
         self.removeFile = removeFile
     }
 
@@ -94,8 +97,13 @@ final class DictationPipeline {
 
             let completeText: (String?, String) -> Void = { corrected, candidate in
                 do {
-                    let finalText = try DictationTextProcessor.finalize(candidate) {
+                    let dictionaryText = try DictationTextProcessor.finalize(candidate) {
                         self.dictionary.apply(to: $0, bundleIdentifier: request.bundleIdentifier)
+                    }
+                    let finalText = self.snippetApply(dictionaryText)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !finalText.isEmpty else {
+                        throw DictationPipelineError.emptyTranscript
                     }
                     finish(.success(DictationOutcome(
                         rawTranscript: raw,
@@ -161,7 +169,8 @@ extension DictationPipeline {
             cloudTranscriber: CloudTranscriptionService(),
             localTranscriber: WhisperDictationTranscriber(),
             corrector: TextCorrectionService(),
-            dictionary: CorrectionDictionary.shared
+            dictionary: CorrectionDictionary.shared,
+            snippetApply: { VoiceSnippetRuntime.shared.expand($0) }
         )
     }
 }
