@@ -12,6 +12,8 @@ struct MeetingCoreTests {
         try testMarkdownExport()
         try testEmptySections()
         try testDocumentOrdering()
+        try testSourceLabelledTranscript()
+        try testChunkPolicy()
         print("MeetingCoreTests: PASS")
     }
 
@@ -52,6 +54,29 @@ struct MeetingCoreTests {
         let md = MeetingMarkdown.export(session)
         try expect(!md.contains("## Meeting Notes"), "missing notes must not emit empty notes heading")
         try expect(md.contains("## Transcript"), "transcript must always export")
+    }
+
+    static func testSourceLabelledTranscript() throws {
+        let segments = [
+            MeetingTranscriptSegment(source: .microphone, text: "I will send the report."),
+            MeetingTranscriptSegment(source: .systemAudio, text: "Please send it by Friday.")
+        ]
+        let text = MeetingTranscript.render(segments)
+        try expect(text.contains("[You] I will send the report."),
+                   "microphone transcript must be labelled as You")
+        try expect(text.contains("[Meeting Audio] Please send it by Friday."),
+                   "system audio transcript must keep a separate source label")
+    }
+
+    static func testChunkPolicy() throws {
+        let chunks = MeetingChunkPolicy.ranges(totalFrames: 16000 * 60 * 23,
+                                               sampleRate: 16000,
+                                               maxChunkSeconds: 600)
+        try expect(chunks.count == 3, "23 minutes must split into 10m + 10m + 3m chunks")
+        try expect(chunks[0].length == 16000 * 60 * 10,
+                   "first chunk must be 10 minutes at 16 kHz")
+        try expect(chunks[2].length == 16000 * 60 * 3,
+                   "last chunk must contain the remaining duration")
     }
 
     static func testDocumentOrdering() throws {
