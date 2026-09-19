@@ -110,7 +110,7 @@ namespace WhisperWin
 
             // --- General group ---
             var gGen = AddGroup("ทั่วไป", y, 148);
-            _cboLang = AddCombo(gGen, "ภาษาที่พูด", 26, new object[] { "ไทย", "English", "ตรวจอัตโนมัติ" });
+            _cboLang = AddCombo(gGen, "ภาษาที่พูด", 26, new object[] { "ไทย", "English", "ไทย + English (Mixed)", "ตรวจอัตโนมัติ" });
 
             AddLabel(gGen, "ปุ่มลัด", 60);
             _cboKey = new ComboBox { Left = 130, Top = 56, Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -197,7 +197,8 @@ namespace WhisperWin
             _llmPrev = CurrentLlm().Id;
             LoadLlmFields(CurrentLlm());
 
-            _cboLang.SelectedIndex = _cfg.Language == "en" ? 1 : (_cfg.Language == "auto" ? 2 : 0);
+            _cboLang.SelectedIndex = _cfg.Language == "en" ? 1
+                : (_cfg.Language == "th-en" ? 2 : (_cfg.Language == "auto" ? 3 : 0));
 
             int keyIdx = Array.FindIndex(HotkeyChoices, k => k.Vk == _cfg.HotkeyVk);
             _cboKey.SelectedIndex = keyIdx >= 0 ? keyIdx : 8; // F9
@@ -328,7 +329,9 @@ namespace WhisperWin
             _cfg.LlmModels.Clear(); foreach (var kv in _llmModels) _cfg.LlmModels[kv.Key] = kv.Value;
             _cfg.LlmEndpoints.Clear(); foreach (var kv in _llmEndpoints) _cfg.LlmEndpoints[kv.Key] = kv.Value;
 
-            _cfg.Language = _cboLang.SelectedIndex == 1 ? "en" : (_cboLang.SelectedIndex == 2 ? "auto" : "th");
+            _cfg.Language = _cboLang.SelectedIndex == 1 ? "en"
+                : (_cboLang.SelectedIndex == 2 ? "th-en"
+                    : (_cboLang.SelectedIndex == 3 ? "auto" : "th"));
 
             var key = (KeyItem)_cboKey.SelectedItem;
             if (key != null) _cfg.HotkeyVk = key.Vk;
