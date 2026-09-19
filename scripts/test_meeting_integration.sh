@@ -19,6 +19,8 @@ require Sources/MeetingTranscriptionService.swift "AudioChunker" "long recording
 require Sources/MeetingModeController.swift "removeItem" "temporary meeting audio must be removed after transcription"
 require Sources/MeetingModeController.swift "MeetingStore.shared" "meeting transcript/notes must persist locally"
 require Sources/AppDelegate.swift "openMeetingMode" "menu bar must expose Meeting Mode"
+require Info.plist "NSScreenCaptureUsageDescription" "system audio capture must explain screen capture permission"
+require Info.plist "NSAudioCaptureUsageDescription" "system audio capture must explain audio capture permission"
 forbid Sources/MeetingModeController.swift "VoiceCommandProcessor" "meeting transcript must not run dictation voice commands"
 forbid Sources/MeetingModeController.swift "VoiceSnippet" "meeting transcript must not run snippets"
 forbid Sources/MeetingModeController.swift "CorrectionDictionary" "meeting transcript must remain verbatim"
