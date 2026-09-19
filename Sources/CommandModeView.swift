@@ -35,12 +35,12 @@ struct CommandModeView: View {
             )
 
             LazyVGrid(columns: columns, spacing: 10) {
-                actionButton(.polite, icon: "hand.thumbsup")
-                actionButton(.concise, icon: "scissors")
-                actionButton(.formal, icon: "briefcase")
-                actionButton(.summarize, icon: "text.alignleft")
-                actionButton(.translateThai, icon: "character.book.closed")
-                actionButton(.translateEnglish, icon: "globe")
+                actionButton(.polite, title: "Polite", icon: "hand.thumbsup")
+                actionButton(.concise, title: "Concise", icon: "scissors")
+                actionButton(.formal, title: "Formal", icon: "briefcase")
+                actionButton(.summarize, title: "Summarize", icon: "text.alignleft")
+                actionButton(.translateThai, title: "Translate Thai", icon: "character.book.closed")
+                actionButton(.translateEnglish, title: "Translate English", icon: "globe")
             }
 
             if !controller.resultText.isEmpty {
@@ -74,11 +74,11 @@ struct CommandModeView: View {
         .frame(width: 560, height: 500)
     }
 
-    private func actionButton(_ action: AIAction, icon: String) -> some View {
+    private func actionButton(_ action: AIAction, title: String, icon: String) -> some View {
         Button {
             controller.apply(action)
         } label: {
-            Label(action.title, systemImage: icon)
+            Label(title, systemImage: icon)
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
