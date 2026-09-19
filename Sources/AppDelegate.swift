@@ -7,6 +7,7 @@ import Sparkle
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
     let controller = DictationController()
     let commandModeController = CommandModeController()
+    let meetingModeController = MeetingModeController()
 
     private var statusItem: NSStatusItem!
     private var panel: NSPanel!
@@ -19,6 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     private var historyWindow: NSWindow?
     private var snippetsWindow: NSWindow?
     private var commandModeWindow: NSWindow?
+    private var meetingModeWindow: NSWindow?
 
     private var toggleItem: NSMenuItem!
     private var cloudItem: NSMenuItem!
@@ -118,6 +120,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         commandMode.target = self
         commandMode.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
         menu.addItem(commandMode)
+
+        let meetingMode = NSMenuItem(title: "Meeting Mode…", action: #selector(openMeetingMode), keyEquivalent: "")
+        meetingMode.target = self
+        meetingMode.image = NSImage(systemSymbolName: "person.2.wave.2", accessibilityDescription: nil)
+        menu.addItem(meetingMode)
 
         let history = NSMenuItem(title: "History…", action: #selector(openHistory), keyEquivalent: "")
         history.target = self
@@ -310,6 +317,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         NSApp.setActivationPolicy(.accessory)
     }
 
+    @objc private func openMeetingMode() {
+        if meetingModeWindow == nil {
+            let w = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 1000, height: 720),
+                styleMask: [.titled, .closable, .resizable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            w.title = "Whisper Meeting Mode"
+            w.contentView = NSHostingView(rootView: MeetingView(controller: meetingModeController))
+            w.isReleasedWhenClosed = false
+            w.delegate = self
+            w.center()
+            meetingModeWindow = w
+        }
+
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        meetingModeWindow?.makeKeyAndOrderFront(nil)
+    }
+
     @objc private func openHistory() {
         if historyWindow == nil {
             let w = NSWindow(
@@ -330,7 +358,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     // Return to menu-bar mode when a window closes (hide from Dock)
     func windowWillClose(_ notification: Notification) {
         let win = notification.object as? NSWindow
-        if win === settingsWindow || win === aboutWindow || win === dictionaryWindow || win === historyWindow || win === snippetsWindow || win === commandModeWindow {
+        if win === settingsWindow || win === aboutWindow || win === dictionaryWindow || win === historyWindow || win === snippetsWindow || win === commandModeWindow || win === meetingModeWindow {
             NSApp.setActivationPolicy(.accessory)
         }
     }
