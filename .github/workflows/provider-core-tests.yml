@@ -66,6 +66,18 @@ jobs:
       - name: Test voice snippet UI
         run: bash scripts/test_voice_snippet_ui.sh
 
+      - name: Test local Whisper core
+        run: bash scripts/test_local_whisper_core.sh
+
+      - name: Test local Whisper settings
+        run: bash scripts/test_local_whisper_settings.sh
+
+      - name: Test local Whisper integration
+        run: bash scripts/test_local_whisper_integration.sh
+
+      - name: Test local Whisper UI
+        run: bash scripts/test_local_whisper_ui.sh
+
       - name: Test macOS arm64 release contract
         run: bash scripts/test_macos_arm64_release_config.sh
 

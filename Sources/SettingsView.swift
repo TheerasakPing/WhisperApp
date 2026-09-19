@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @ObservedObject var controller: DictationController
+
     // Hotkey
     @State private var hotkeyConfig = HotkeyManager.shared.currentConfig
     @State private var isRecordingHotkey = false
@@ -21,6 +23,12 @@ struct SettingsView: View {
     @State private var llmModels: [String] = []
     @State private var llmLoadingModels = false
 
+    // Local M1-M4 mode
+    @State private var localExecutable = ""
+    @State private var localModel = ""
+    @State private var localModels: [String] = []
+    @State private var localMsg = ""
+
     private var sttProvider: STTProvider { STTRegistry.provider(id: sttProviderID) }
     private var llmProvider: LLMProvider { LLMRegistry.provider(id: llmProviderID) }
 
@@ -30,6 +38,8 @@ struct SettingsView: View {
                 Text("Whisper Settings").font(.title3).bold()
 
                 hotkeySection
+                Divider()
+                localModeSection
                 Divider()
                 sttSection
                 Divider()
@@ -46,6 +56,7 @@ struct SettingsView: View {
         }
         .frame(width: 620, height: 820)
         .onAppear {
+            loadLocalFields()
             loadSttFields()
             loadLlmFields()
         }
@@ -74,6 +85,62 @@ struct SettingsView: View {
         }
         .onChange(of: hotkeyConfig.keyCode) { _ in HotkeyManager.shared.updateConfig(hotkeyConfig) }
         .onChange(of: hotkeyConfig.modifiers) { _ in HotkeyManager.shared.updateConfig(hotkeyConfig) }
+    }
+
+    private var localModeSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Local M1–M4 Mode", systemImage: "cpu")
+                .font(.subheadline).bold()
+
+            Toggle("Use local STT by default", isOn: Binding(
+                get: { !controller.useCloudSTT },
+                set: { enabled in setLocalSTTEnabled(enabled) }
+            ))
+            .font(.caption)
+
+            TextField("whisper-cli path (leave blank for Auto Detect)", text: $localExecutable)
+                .textFieldStyle(.roundedBorder)
+
+            TextField("Whisper model path", text: $localModel)
+                .textFieldStyle(.roundedBorder)
+
+            if !localModels.isEmpty {
+                Picker("Whisper model", selection: $localModel) {
+                    Text("Auto-select best model").tag("")
+                    ForEach(localModels, id: \.self) { path in
+                        Text(URL(fileURLWithPath: path).lastPathComponent).tag(path)
+                    }
+                }
+            }
+
+            HStack {
+                Button("Auto Detect") { autoDetectLocalWhisper() }
+                Button("Refresh Models") { refreshLocalWhisperStatus() }
+                Button("Save Local STT") { saveLocalWhisper() }
+                    .buttonStyle(.borderedProminent)
+            }
+
+            if !localMsg.isEmpty {
+                Text(localMsg)
+                    .font(.caption)
+                    .foregroundStyle(localMsg.hasPrefix("⚠️") ? .orange : .secondary)
+            }
+
+            Text("Model folders: ~/.whisper-models and ~/Library/Application Support/WhisperApp/Models · .bin and .gguf are discovered automatically.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 10) {
+                Text("Local AI correction:")
+                    .font(.caption)
+                Button("Use Ollama") { selectLocalLLM("ollama") }
+                Button("Use LM Studio") { selectLocalLLM("lmstudio") }
+            }
+
+            Text("Ollama and LM Studio use their local OpenAI-compatible endpoints with no API key. After selecting one, use Load Models under AI Text Correction to choose an installed model.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var sttSection: some View {
@@ -166,6 +233,73 @@ struct SettingsView: View {
                     .font(.caption2).foregroundColor(.secondary)
             }
         }
+    }
+
+    private func loadLocalFields() {
+        let settings = LocalWhisperSettingsStore.shared
+        localExecutable = settings.executablePath
+        localModel = settings.modelPath
+        refreshLocalWhisperStatus()
+    }
+
+    private func refreshLocalWhisperStatus() {
+        localModels = LocalWhisperManager.shared.availableModelPaths()
+        let snapshot = LocalWhisperManager.shared.snapshot()
+        if snapshot.isReady {
+            localMsg = "✅ Ready for offline STT · " +
+                URL(fileURLWithPath: snapshot.modelPath ?? "").lastPathComponent
+        } else {
+            let missing = snapshot.issues.map { issue -> String in
+                switch issue {
+                case .executableMissing: return "whisper-cli"
+                case .modelMissing: return "Whisper model"
+                }
+            }.joined(separator: " + ")
+            localMsg = "⚠️ Missing " + missing
+        }
+    }
+
+    private func autoDetectLocalWhisper() {
+        let snapshot = LocalWhisperManager.shared.snapshot()
+        if let executable = snapshot.executablePath {
+            localExecutable = executable
+        }
+        if let model = snapshot.modelPath {
+            localModel = model
+        }
+        saveLocalWhisper()
+    }
+
+    private func saveLocalWhisper() {
+        let settings = LocalWhisperSettingsStore.shared
+        settings.executablePath = localExecutable
+        settings.modelPath = localModel
+        localModels = LocalWhisperManager.shared.availableModelPaths()
+        refreshLocalWhisperStatus()
+    }
+
+    private func setLocalSTTEnabled(_ enabled: Bool) {
+        if enabled {
+            let snapshot = LocalWhisperManager.shared.snapshot()
+            guard snapshot.isReady else {
+                localMsg = "⚠️ Local STT is not ready. Auto Detect or select whisper-cli and a model first."
+                return
+            }
+        }
+        controller.useCloudSTT = !enabled
+        LocalWhisperSettingsStore.shared.preferLocalSTT = enabled
+        refreshLocalWhisperStatus()
+    }
+
+    private func selectLocalLLM(_ providerID: String) {
+        let provider = LLMRegistry.provider(id: providerID)
+        llmProviderID = provider.id
+        LLMSettings.providerID = provider.id
+        llmKey = LLMSettings.savedKeyFile(for: provider)
+        llmModel = LLMSettings.savedModel(for: provider)
+        llmEndpoint = LLMSettings.savedEndpoint(for: provider)
+        llmModels = []
+        localMsg = "✅ \(provider.name) selected · choose/load a local model below"
     }
 
     private func loadSttFields() {

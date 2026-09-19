@@ -4,41 +4,25 @@ class WhisperService: ObservableObject {
     @Published var language = "auto"
     @Published var statusMessage = ""
 
-    private let whisperPath = "/opt/homebrew/opt/whisper-cpp/bin/whisper-cli"
-
-    private var modelPath: String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let modelDir = "\(home)/.whisper-models"
-
-        if let files = try? FileManager.default.contentsOfDirectory(atPath: modelDir) {
-            let bins = files.filter { $0.hasSuffix(".bin") }
-            // Pick the best model by accuracy priority if multiple exist
-            let priority = ["large-v3", "large", "medium", "small", "base", "tiny"]
-            for key in priority {
-                if let match = bins.first(where: { $0.contains(key) }) {
-                    return "\(modelDir)/\(match)"
-                }
-            }
-            if let first = bins.first {
-                return "\(modelDir)/\(first)"
-            }
-        }
-
-        return "\(modelDir)/ggml-base.bin"
-    }
-
     func transcribe(fileURL: URL, completion: @escaping (String?) -> Void) {
-        // Check model file exists
-        guard FileManager.default.fileExists(atPath: modelPath) else {
+        let local = LocalWhisperManager.shared.snapshot()
+        guard let whisperPath = local.executablePath else {
             DispatchQueue.main.async {
-                self.statusMessage = "❌ Model not found: \(self.modelPath)"
+                self.statusMessage = "❌ whisper-cli not found. Open Settings → Local M1–M4 Mode."
+            }
+            completion(nil)
+            return
+        }
+        guard let modelPath = local.modelPath else {
+            DispatchQueue.main.async {
+                self.statusMessage = "❌ Local Whisper model not found. Open Settings → Local M1–M4 Mode."
             }
             completion(nil)
             return
         }
 
         DispatchQueue.main.async {
-            self.statusMessage = "🔄 Transcribing..."
+            self.statusMessage = "🔄 Transcribing locally..."
         }
 
         let process = Process()

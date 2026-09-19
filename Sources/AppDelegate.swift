@@ -171,7 +171,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     }
 
     @objc private func toggleAction() { controller.toggle() }
-    @objc private func toggleCloud() { controller.useCloudSTT.toggle(); updateStates() }
+    @objc private func toggleCloud() {
+        controller.useCloudSTT.toggle()
+        LocalWhisperSettingsStore.shared.preferLocalSTT = !controller.useCloudSTT
+        updateStates()
+    }
     @objc private func toggleCorrection() { controller.useCorrection.toggle(); updateStates() }
     @objc private func pasteLastTranscript() { controller.pasteLastTranscript() }
     @objc private func undoLastPaste() { controller.undoLastPaste() }
@@ -196,7 +200,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
                 contentRect: NSRect(x: 0, y: 0, width: 460, height: 760),
                 styleMask: [.titled, .closable], backing: .buffered, defer: false)
             w.title = "Whisper Settings"
-            w.contentView = NSHostingView(rootView: SettingsView())
+            w.contentView = NSHostingView(rootView: SettingsView(controller: controller))
             w.isReleasedWhenClosed = false
             w.delegate = self
             w.center()

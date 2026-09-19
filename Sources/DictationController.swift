@@ -20,7 +20,7 @@ class DictationController: ObservableObject {
     @Published var isRecording = false
     @Published var status = ""
     @Published var stage: Stage = .idle
-    @Published var useCloudSTT = true
+    @Published var useCloudSTT: Bool
     @Published var useCorrection = true
     @Published var language = "th"
 
@@ -32,6 +32,8 @@ class DictationController: ObservableObject {
     private var capturedProfile: AppProfile?
 
     init() {
+        useCloudSTT = !LocalWhisperSettingsStore.shared.preferLocalSTT
+
         recorder.$recordedFileURL
             .compactMap { $0 }
             .receive(on: DispatchQueue.main)
