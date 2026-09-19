@@ -104,11 +104,12 @@ enum VoiceCommandProcessor {
         // Strongest signal: the correction and rejected suffix share a meaningful anchor.
         // Examples: วันศุกร์ -> วันพฤหัส, ESP32-S3 -> ESP32-C3.
         let maxPrefix = min(replacement.count, 16)
-        let hasASCII = replacement.unicodeScalars.contains { $0.isASCII }
-        let minimumAnchorLength = hasASCII ? 2 : 3
-        if maxPrefix >= minimumAnchorLength {
-            for length in stride(from: maxPrefix, through: minimumAnchorLength, by: -1) {
+        let replacementHasASCII = replacement.unicodeScalars.contains { $0.isASCII }
+        if maxPrefix >= 2 {
+            for length in stride(from: maxPrefix, through: 2, by: -1) {
                 let anchor = String(replacement.prefix(length))
+                let strongEnough = replacementHasASCII || anchor.unicodeScalars.count >= 3
+                guard strongEnough else { continue }
                 guard let range = left.range(
                     of: anchor,
                     options: [.caseInsensitive, .backwards]
