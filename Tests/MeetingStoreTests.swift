@@ -32,11 +32,13 @@ struct MeetingStoreTests {
         var changed = updated
         changed.notesMarkdown = "## Summary\nDone"
         try store.upsert(changed)
-        try expect(try store.load().sessions.first?.notesMarkdown == "## Summary\nDone",
+        let afterUpdate = try store.load()
+        try expect(afterUpdate.sessions.first?.notesMarkdown == "## Summary\nDone",
                    "upsert must update existing meeting by id")
 
         try store.delete(id: changed.id)
-        try expect(!(try store.load()).sessions.contains(where: { $0.id == changed.id }),
+        let afterDelete = try store.load()
+        try expect(!afterDelete.sessions.contains(where: { $0.id == changed.id }),
                    "meeting deletion must persist")
         print("MeetingStoreTests: PASS")
     }
