@@ -27,33 +27,42 @@ enum STTSettings {
 
     private static func keyPath(_ p: STTProvider) -> String { KeyStore.dir + "/stt_\(p.id).key" }
 
-    static func key(for p: STTProvider) -> String? {
-        if let k = try? String(contentsOfFile: keyPath(p), encoding: .utf8) {
-            let t = k.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !t.isEmpty { return t }
+    private static func legacyKeyPaths(for p: STTProvider) -> [String] {
+        var paths = [keyPath(p)]
+        if p.id == "elevenlabs" {
+            paths.append(KeyStore.elevenPath)
         }
-        if p.id == "elevenlabs", let k = KeyStore.elevenLabsKey() { return k }
+        return paths
+    }
+
+    static func key(for p: STTProvider) -> String? {
+        let saved = savedKeyFile(for: p)
+        if !saved.isEmpty { return saved }
         return ShellEnv.value(p.envKey)
     }
 
     static func savedKeyFile(for p: STTProvider) -> String {
-        if let k = try? String(contentsOfFile: keyPath(p), encoding: .utf8) {
-            return k.trimmingCharacters(in: .whitespacesAndNewlines)
+        let account = "stt:\(p.id)"
+        if let value = SecureCredentialStore.shared.read(account: "stt:" + p.id) {
+            return value
         }
-        if p.id == "elevenlabs",
-           let k = try? String(contentsOfFile: KeyStore.elevenPath, encoding: .utf8) {
-            return k.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return ""
+        return SecureCredentialStore.shared.migrateLegacyKey(
+            account: account,
+            legacyPaths: legacyKeyPaths(for: p)
+        ) ?? ""
     }
 
     static func saveKey(_ key: String, for p: STTProvider) {
-        try? FileManager.default.createDirectory(atPath: KeyStore.dir, withIntermediateDirectories: true)
         let t = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        if p.id == "elevenlabs" { KeyStore.saveElevenLabsKey(t) }
-        let path = keyPath(p)
-        try? t.write(toFile: path, atomically: true, encoding: .utf8)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+        let account = "stt:\(p.id)"
+        if t.isEmpty {
+            _ = SecureCredentialStore.shared.delete(account: account)
+            for path in legacyKeyPaths(for: p) {
+                try? FileManager.default.removeItem(atPath: path)
+            }
+            return
+        }
+        _ = SecureCredentialStore.shared.write(t, account: account)
     }
 
     static func model(for p: STTProvider) -> String {
