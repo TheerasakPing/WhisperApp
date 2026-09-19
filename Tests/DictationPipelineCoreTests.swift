@@ -47,6 +47,7 @@ struct DictationPipelineCoreTests {
         try testLocalPipelineSkipsCorrectionWhenDisabled()
         try testCorrectionFailureFallsBackToCleanTranscript()
         try testVoiceCommandsRunBeforeCorrection()
+        try testSnippetExpansionRunsAfterDictionary()
         try testTranscriptionFailureCleansUpOnce()
         print("DictationPipelineCoreTests: PASS")
     }
@@ -214,6 +215,43 @@ struct DictationPipelineCoreTests {
                    "voice commands must be applied before AI correction")
         try expect(outcome?.finalText == "hello\nworld",
                    "formatted command output must survive the pipeline")
+    }
+
+    static func testSnippetExpansionRunsAfterDictionary() throws {
+        let cloud = FakeTranscriber("insert signature")
+        let local = FakeTranscriber("unused")
+        let corrector = FakeCorrector("insert signature")
+        let dictionary = FakeDictionary()
+        dictionary.transform = { $0.replacingOccurrences(of: "signature", with: "SIGNATURE") }
+        var snippetInput: String?
+        var outcome: DictationOutcome?
+
+        let pipeline = DictationPipeline(
+            cloudTranscriber: cloud,
+            localTranscriber: local,
+            corrector: corrector,
+            dictionary: dictionary,
+            snippetApply: { text in
+                snippetInput = text
+                return text.replacingOccurrences(of: "insert SIGNATURE", with: "Best regards")
+            },
+            removeFile: { _ in }
+        )
+        let request = DictationRequest(
+            audioURL: URL(fileURLWithPath: "/tmp/snippet.wav"),
+            language: "en",
+            source: .cloud,
+            correctionEnabled: true
+        )
+
+        pipeline.process(request, onEvent: { _ in }) { result in
+            if case .success(let value) = result { outcome = value }
+        }
+
+        try expect(snippetInput == "insert SIGNATURE",
+                   "snippet expansion must receive text after Dictionary processing")
+        try expect(outcome?.finalText == "Best regards",
+                   "snippet expansion must become the final pipeline output")
     }
 
     static func testTranscriptionFailureCleansUpOnce() throws {
