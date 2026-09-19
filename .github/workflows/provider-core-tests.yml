@@ -48,6 +48,12 @@ jobs:
       - name: Test Thai-English mixed mode integration
         run: bash scripts/test_thai_english_mixed_integration.sh
 
+      - name: Test voice command core
+        run: bash scripts/test_voice_command_core.sh
+
+      - name: Test voice command integration
+        run: bash scripts/test_voice_command_integration.sh
+
       - name: Test macOS arm64 release contract
         run: bash scripts/test_macos_arm64_release_config.sh
 

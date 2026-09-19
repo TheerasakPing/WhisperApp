@@ -28,10 +28,12 @@ class TextCorrectionService: ObservableObject {
             ? ThaiEnglishMixedMode.protectLatinTerms(in: text)
             : nil
         let correctionText = mixedProtection?.text ?? text
+        let hasUnresolvedSelfCorrection = VoiceCommandProcessor.containsSelfCorrectionCue(in: correctionText)
         let systemPrompt = makeSystemPrompt(
             language: language,
             profile: profile,
-            protectedTermCount: mixedProtection?.terms.count ?? 0
+            protectedTermCount: mixedProtection?.terms.count ?? 0,
+            hasUnresolvedSelfCorrection: hasUnresolvedSelfCorrection
         )
 
         DispatchQueue.main.async { self.isCorrecting = true }
@@ -68,7 +70,8 @@ class TextCorrectionService: ObservableObject {
     private func makeSystemPrompt(
         language: String,
         profile: AppProfile?,
-        protectedTermCount: Int
+        protectedTermCount: Int,
+        hasUnresolvedSelfCorrection: Bool
     ) -> String {
         let langHint: String
         if ThaiEnglishMixedMode.isEnabled(language: language) {
@@ -96,6 +99,9 @@ class TextCorrectionService: ObservableObject {
             prompt += "\n\n" + ThaiEnglishMixedMode.correctionInstructions(
                 protectedTermCount: protectedTermCount
             )
+        }
+        if hasUnresolvedSelfCorrection {
+            prompt += "\n\n" + VoiceCommandProcessor.correctionPromptInstructions
         }
 
         let hint = CorrectionDictionary.shared.hintForPrompt
