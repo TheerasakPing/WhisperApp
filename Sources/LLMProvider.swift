@@ -23,15 +23,23 @@ enum LLMSettings {
         KeyStore.dir + "/llm_\(p.id).key"
     }
 
+    private static func legacyKeyPaths(for p: LLMProvider) -> [String] {
+        var paths = [keyPath(p)]
+        if p.id == "deepseek" {
+            paths.append(KeyStore.dir + "/deepseek.key")
+        }
+        return paths
+    }
+
     static func savedKeyFile(for p: LLMProvider) -> String {
-        if let k = try? String(contentsOfFile: keyPath(p), encoding: .utf8) {
-            return k.trimmingCharacters(in: .whitespacesAndNewlines)
+        let account = "llm:\(p.id)"
+        if let value = SecureCredentialStore.shared.read(account: "llm:" + p.id) {
+            return value
         }
-        if p.id == "deepseek",
-           let k = try? String(contentsOfFile: KeyStore.dir + "/deepseek.key", encoding: .utf8) {
-            return k.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return ""
+        return SecureCredentialStore.shared.migrateLegacyKey(
+            account: account,
+            legacyPaths: legacyKeyPaths(for: p)
+        ) ?? ""
     }
 
     static func key(for p: LLMProvider) -> String? {
@@ -41,15 +49,16 @@ enum LLMSettings {
     }
 
     static func saveKey(_ key: String, for p: LLMProvider) {
-        try? FileManager.default.createDirectory(atPath: KeyStore.dir, withIntermediateDirectories: true)
         let t = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        let path = keyPath(p)
+        let account = "llm:\(p.id)"
         if t.isEmpty {
-            try? FileManager.default.removeItem(atPath: path)
+            _ = SecureCredentialStore.shared.delete(account: account)
+            for path in legacyKeyPaths(for: p) {
+                try? FileManager.default.removeItem(atPath: path)
+            }
             return
         }
-        try? t.write(toFile: path, atomically: true, encoding: .utf8)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+        _ = SecureCredentialStore.shared.write(t, account: account)
     }
 
     static func model(for p: LLMProvider) -> String {
