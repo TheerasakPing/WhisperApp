@@ -1,13 +1,6 @@
 import Foundation
 
 final class MeetingStore {
-    static var shared: MeetingStore {
-        MeetingStore(
-            directoryURL: URL(fileURLWithPath: KeyStore.dir, isDirectory: true),
-            maxSessions: 100
-        )
-    }
-
     let directoryURL: URL
     let documentURL: URL
     let maxSessions: Int
@@ -62,3 +55,15 @@ final class MeetingStore {
         try encoder.encode(doc).write(to: documentURL, options: .atomic)
     }
 }
+
+
+#if os(macOS)
+extension MeetingStore {
+    static var shared: MeetingStore {
+        MeetingStore(
+            directoryURL: URL(fileURLWithPath: KeyStore.dir, isDirectory: true),
+            maxSessions: 100
+        )
+    }
+}
+#endif
