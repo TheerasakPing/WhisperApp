@@ -123,16 +123,20 @@ namespace WhisperWin
             return result;
         }
 
-        public static void SaveProviderKeys(string prefix, Dictionary<string, string> values, IEnumerable<string> providerIds)
+        public static bool SaveProviderKeys(string prefix, Dictionary<string, string> values, IEnumerable<string> providerIds)
         {
-            if (providerIds == null) return;
+            if (providerIds == null) return true;
+            bool ok = true;
             foreach (var id in providerIds)
             {
                 string value = null;
                 if (values != null) values.TryGetValue(id, out value);
-                if (string.IsNullOrWhiteSpace(value)) Delete(prefix + id);
-                else Write(prefix + id, value.Trim());
+                if (string.IsNullOrWhiteSpace(value))
+                    ok = Delete(prefix + id) && ok;
+                else
+                    ok = Write(prefix + id, value.Trim()) && ok;
             }
+            return ok;
         }
 
         private static bool MigrateDictionary(string prefix, Dictionary<string, string> values)
