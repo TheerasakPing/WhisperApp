@@ -59,10 +59,15 @@ namespace WhisperWin
         public SettingsForm(AppConfig cfg)
         {
             _cfg = cfg;
-            _sttKeys = new Dictionary<string, string>(cfg.SttKeys);
+            _sttKeys = CredentialStore.LoadProviderKeys("stt:", SttRegistry.All.Select(p => p.Id));
+            foreach (var kv in cfg.SttKeys)
+                if (!_sttKeys.ContainsKey(kv.Key)) _sttKeys[kv.Key] = kv.Value;
             _sttModels = new Dictionary<string, string>(cfg.SttModels);
             _sttEndpoints = new Dictionary<string, string>(cfg.SttEndpoints);
-            _llmKeys = new Dictionary<string, string>(cfg.LlmKeys);
+
+            _llmKeys = CredentialStore.LoadProviderKeys("llm:", LlmRegistry.All.Select(p => p.Id));
+            foreach (var kv in cfg.LlmKeys)
+                if (!_llmKeys.ContainsKey(kv.Key)) _llmKeys[kv.Key] = kv.Value;
             _llmModels = new Dictionary<string, string>(cfg.LlmModels);
             _llmEndpoints = new Dictionary<string, string>(cfg.LlmEndpoints);
 
@@ -301,13 +306,25 @@ namespace WhisperWin
             StashLlm(CurrentLlm().Id);
 
             _cfg.SttProvider = CurrentStt().Id;
-            _cfg.SttKeys.Clear(); foreach (var kv in _sttKeys) _cfg.SttKeys[kv.Key] = kv.Value;
+            if (!CredentialStore.SaveProviderKeys("stt:", _sttKeys, SttRegistry.All.Select(p => p.Id)))
+            {
+                MessageBox.Show("บันทึก API key ลง Windows Credential Store ไม่สำเร็จ กรุณาลองอีกครั้ง",
+                    "WhisperApp", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            _cfg.SttKeys.Clear();
             _cfg.SttModels.Clear(); foreach (var kv in _sttModels) _cfg.SttModels[kv.Key] = kv.Value;
             _cfg.SttEndpoints.Clear(); foreach (var kv in _sttEndpoints) _cfg.SttEndpoints[kv.Key] = kv.Value;
 
             _cfg.UseCorrection = _chkCorrection.Checked;
             _cfg.LlmProvider = CurrentLlm().Id;
-            _cfg.LlmKeys.Clear(); foreach (var kv in _llmKeys) _cfg.LlmKeys[kv.Key] = kv.Value;
+            if (!CredentialStore.SaveProviderKeys("llm:", _llmKeys, LlmRegistry.All.Select(p => p.Id)))
+            {
+                MessageBox.Show("บันทึก AI API key ลง Windows Credential Store ไม่สำเร็จ กรุณาลองอีกครั้ง",
+                    "WhisperApp", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            _cfg.LlmKeys.Clear();
             _cfg.LlmModels.Clear(); foreach (var kv in _llmModels) _cfg.LlmModels[kv.Key] = kv.Value;
             _cfg.LlmEndpoints.Clear(); foreach (var kv in _llmEndpoints) _cfg.LlmEndpoints[kv.Key] = kv.Value;
 
