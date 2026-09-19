@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -41,6 +43,9 @@ namespace WhisperWin
                 throw new InvalidOperationException("ยังไม่ได้ตั้งค่า endpoint ของ " + p.Name);
 
             byte[] audio = File.ReadAllBytes(wavPath);
+
+            if (p.Style == SttStyle.QwenAudioChat)
+                return await TranscribeQwenAudioChatAsync(cfg, p, key, endpoint, audio).ConfigureAwait(false);
 
             using (var form = new MultipartFormDataContent("Boundary-" + Guid.NewGuid().ToString("N")))
             using (var req = new HttpRequestMessage(HttpMethod.Post, endpoint))
@@ -82,6 +87,80 @@ namespace WhisperWin
                     if (text == null)
                     {
                         Log.Error(p.Name + " unexpected response: " + Truncate(body, 500));
+                        throw new InvalidOperationException("อ่านผลลัพธ์จาก " + p.Name + " ไม่ได้");
+                    }
+                    return text.Trim();
+                }
+            }
+        }
+
+        private static async Task<string> TranscribeQwenAudioChatAsync(
+            AppConfig cfg,
+            SttProvider p,
+            string key,
+            string endpoint,
+            byte[] audio)
+        {
+            const int maxAudioBytes = 10 * 1024 * 1024;
+            if (audio == null || audio.Length == 0)
+                throw new InvalidOperationException("ไฟล์เสียงว่าง");
+            if (audio.Length > maxAudioBytes)
+                throw new InvalidOperationException("Qwen3 ASR รองรับไฟล์เสียงสูงสุด 10 MB ต่อคำขอ");
+
+            var dataUri = "data:audio/wav;base64," + Convert.ToBase64String(audio);
+            var body = new Dictionary<string, object>
+            {
+                { "model", cfg.SttModel(p) },
+                { "messages", new object[]
+                    {
+                        new Dictionary<string, object>
+                        {
+                            { "role", "user" },
+                            { "content", new object[]
+                                {
+                                    new Dictionary<string, object>
+                                    {
+                                        { "type", "input_audio" },
+                                        { "input_audio", new Dictionary<string, object>
+                                            {
+                                                { "data", dataUri }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                { "stream", false },
+            };
+
+            using (var req = new HttpRequestMessage(HttpMethod.Post, endpoint))
+            {
+                req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + key);
+                req.Content = new StringContent(
+                    Json.Serializer().Serialize(body),
+                    Encoding.UTF8,
+                    "application/json"
+                );
+
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120)))
+                using (var resp = await Http.SendAsync(req, cts.Token).ConfigureAwait(false))
+                {
+                    var responseBody = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        Log.Error(p.Name + " HTTP " + (int)resp.StatusCode + ": " + Truncate(responseBody, 500));
+                        throw new InvalidOperationException(p.Name + " ตอบกลับ HTTP " + (int)resp.StatusCode);
+                    }
+
+                    var json = Json.ParseObject(responseBody);
+                    var choice = Json.AsObject(Json.AsArray(Json.Get(json, "choices")).FirstOrDefault());
+                    var message = Json.AsObject(Json.Get(choice, "message"));
+                    var text = Json.AsString(Json.Get(message, "content"));
+                    if (string.IsNullOrWhiteSpace(text))
+                    {
+                        Log.Error(p.Name + " unexpected response: " + Truncate(responseBody, 500));
                         throw new InvalidOperationException("อ่านผลลัพธ์จาก " + p.Name + " ไม่ได้");
                     }
                     return text.Trim();
