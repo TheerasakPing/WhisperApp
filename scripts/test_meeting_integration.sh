@@ -14,6 +14,8 @@ require Sources/MeetingNotesService.swift "LLMRequestBuilder.build" "meeting not
 require Sources/MeetingTranscriptionService.swift "CloudTranscriptionService" "meeting mode must support configured cloud STT"
 require Sources/MeetingTranscriptionService.swift "WhisperService" "meeting mode must support local Whisper STT"
 require Sources/MeetingModeController.swift "AudioRecorder" "meeting mode must record microphone audio"
+require Sources/MeetingModeController.swift "SystemAudioRecorder" "meeting mode must support system audio recording"
+require Sources/MeetingTranscriptionService.swift "AudioChunker" "long recordings must be split into upload-safe chunks"
 require Sources/MeetingModeController.swift "removeItem" "temporary meeting audio must be removed after transcription"
 require Sources/MeetingModeController.swift "MeetingStore.shared" "meeting transcript/notes must persist locally"
 require Sources/AppDelegate.swift "openMeetingMode" "menu bar must expose Meeting Mode"
