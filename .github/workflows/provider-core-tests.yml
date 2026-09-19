@@ -99,6 +99,9 @@ jobs:
       - name: Test Meeting UI
         run: bash scripts/test_meeting_ui.sh
 
+      - name: Test secure credential contract
+        run: bash scripts/test_secure_credentials_contract.sh
+
       - name: Test macOS arm64 release contract
         run: bash scripts/test_macos_arm64_release_config.sh
 
@@ -168,3 +171,7 @@ jobs:
       - name: Build Windows app
         shell: cmd
         run: windows\build.bat
+
+      - name: Test Windows security and parity
+        shell: powershell
+        run: windows\test_security_parity.ps1
