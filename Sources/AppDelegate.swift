@@ -16,6 +16,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     private var aboutWindow: NSWindow?
     private var dictionaryWindow: NSWindow?
     private var historyWindow: NSWindow?
+    private var snippetsWindow: NSWindow?
 
     private var toggleItem: NSMenuItem!
     private var cloudItem: NSMenuItem!
@@ -136,6 +137,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         dictionary.image = NSImage(systemSymbolName: "text.book.closed", accessibilityDescription: nil)
         menu.addItem(dictionary)
 
+        let snippets = NSMenuItem(title: "Snippets…", action: #selector(openSnippets), keyEquivalent: "")
+        snippets.target = self
+        snippets.image = NSImage(systemSymbolName: "text.badge.plus", accessibilityDescription: nil)
+        menu.addItem(snippets)
+
         let about = NSMenuItem(title: "About Whisper", action: #selector(openAbout), keyEquivalent: "")
         about.target = self
         about.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: nil)
@@ -237,6 +243,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         dictionaryWindow?.makeKeyAndOrderFront(nil)
     }
 
+    @objc private func openSnippets() {
+        if snippetsWindow == nil {
+            let w = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 640, height: 650),
+                styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+            w.title = "Voice Snippets"
+            w.contentView = NSHostingView(rootView: SnippetsView())
+            w.isReleasedWhenClosed = false
+            w.delegate = self
+            w.center()
+            snippetsWindow = w
+        }
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        snippetsWindow?.makeKeyAndOrderFront(nil)
+    }
+
     @objc private func openHistory() {
         if historyWindow == nil {
             let w = NSWindow(
@@ -257,7 +280,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     // Return to menu-bar mode when a window closes (hide from Dock)
     func windowWillClose(_ notification: Notification) {
         let win = notification.object as? NSWindow
-        if win === settingsWindow || win === aboutWindow || win === dictionaryWindow || win === historyWindow {
+        if win === settingsWindow || win === aboutWindow || win === dictionaryWindow || win === historyWindow || win === snippetsWindow {
             NSApp.setActivationPolicy(.accessory)
         }
     }
