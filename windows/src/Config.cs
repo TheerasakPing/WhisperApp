@@ -5,8 +5,9 @@ using System.Web.Script.Serialization;
 
 namespace WhisperWin
 {
-    /// App settings persisted as JSON at %APPDATA%\WhisperApp\config.json
-    /// API key resolution order matches macOS version: saved value → environment variable
+    /// App settings persisted as JSON at %APPDATA%\WhisperApp\config.json.
+    /// API keys live in a separate DPAPI-protected credential store. Legacy plaintext
+    /// dictionaries are retained only when migration cannot be completed safely.
     public class AppConfig
     {
         public string SttProvider = "groq";
@@ -19,7 +20,7 @@ namespace WhisperWin
         public Dictionary<string, string> LlmModels = new Dictionary<string, string>();
         public Dictionary<string, string> LlmEndpoints = new Dictionary<string, string>();
 
-        public string Language = "th";          // th | en | auto
+        public string Language = "th";          // th | en | th-en | auto
         public bool UseCorrection = true;
         public bool UseCloudStt = true;
 
@@ -53,7 +54,12 @@ namespace WhisperWin
                     var json = File.ReadAllText(FilePath);
                     var ser = new JavaScriptSerializer { MaxJsonLength = 8 * 1024 * 1024 };
                     var cfg = ser.Deserialize<AppConfig>(json);
-                    if (cfg != null) { cfg.EnsureDicts(); return cfg; }
+                    if (cfg != null)
+                    {
+                        cfg.EnsureDicts();
+                        if (CredentialStore.MigratePlaintextKeys(cfg)) cfg.Save();
+                        return cfg;
+                    }
                 }
             }
             catch (Exception ex) { Log.Error("Config load: " + ex.Message); }
@@ -67,6 +73,9 @@ namespace WhisperWin
             try
             {
                 Directory.CreateDirectory(Dir);
+                // Successful entries are removed from the legacy dictionaries. Failed
+                // migrations remain in config.json rather than risking credential loss.
+                CredentialStore.MigratePlaintextKeys(this);
                 var ser = new JavaScriptSerializer { MaxJsonLength = 8 * 1024 * 1024 };
                 File.WriteAllText(FilePath, ser.Serialize(this));
             }
@@ -94,7 +103,9 @@ namespace WhisperWin
 
         public string SttKey(SttProvider p)
         {
-            return FromDict(SttKeys, p.Id) ?? EnvOrNull(p.EnvKey);
+            return CredentialStore.Read("stt:" + p.Id)
+                ?? FromDict(SttKeys, p.Id)
+                ?? EnvOrNull(p.EnvKey);
         }
 
         public string SttModel(SttProvider p)
@@ -109,7 +120,9 @@ namespace WhisperWin
 
         public string LlmKey(LlmProvider p)
         {
-            return FromDict(LlmKeys, p.Id) ?? EnvOrNull(p.EnvKey);
+            return CredentialStore.Read("llm:" + p.Id)
+                ?? FromDict(LlmKeys, p.Id)
+                ?? EnvOrNull(p.EnvKey);
         }
 
         public string LlmModel(LlmProvider p)
