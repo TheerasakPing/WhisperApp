@@ -18,7 +18,7 @@ namespace WhisperWin
 
             var p = LlmRegistry.Get(cfg.LlmProvider);
             var key = cfg.LlmKey(p);
-            if (string.IsNullOrEmpty(key))
+            if (p.RequiresApiKey && string.IsNullOrEmpty(key))
             {
                 Log.Error("No key for " + p.Name + " (set in Settings or env " + p.EnvKey + ")");
                 return null;
@@ -98,14 +98,17 @@ namespace WhisperWin
             {
                 using (var req = new HttpRequestMessage(HttpMethod.Post, endpoint))
                 {
-                    if (p.Style == LlmStyle.Anthropic)
+                    if (p.RequiresApiKey)
                     {
-                        req.Headers.TryAddWithoutValidation("x-api-key", key);
-                        req.Headers.TryAddWithoutValidation("anthropic-version", "2023-06-01");
-                    }
-                    else
-                    {
-                        req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + key);
+                        if (p.Style == LlmStyle.Anthropic)
+                        {
+                            req.Headers.TryAddWithoutValidation("x-api-key", key);
+                            req.Headers.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+                        }
+                        else
+                        {
+                            req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + key);
+                        }
                     }
                     req.Content = new StringContent(Json.Serializer().Serialize(body), Encoding.UTF8, "application/json");
 
