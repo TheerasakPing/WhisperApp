@@ -25,7 +25,7 @@ namespace WhisperWin
         private ToolStripMenuItem _miToggle;
         private ToolStripMenuItem _miCorrection;
         private ToolStripMenuItem _miAutostart;
-        private ToolStripMenuItem _miLangTh, _miLangEn, _miLangAuto;
+        private ToolStripMenuItem _miLangTh, _miLangEn, _miLangMixed, _miLangAuto;
         private SettingsForm _settings;
 
         public TrayContext()
@@ -97,6 +97,7 @@ namespace WhisperWin
             var lang = new ToolStripMenuItem("ภาษา");
             _miLangTh = AddLang(lang, "ไทย", "th");
             _miLangEn = AddLang(lang, "English", "en");
+            _miLangMixed = AddLang(lang, "ไทย + English (Mixed)", "th-en");
             _miLangAuto = AddLang(lang, "ตรวจอัตโนมัติ", "auto");
             menu.Items.Add(lang);
 
@@ -206,6 +207,7 @@ namespace WhisperWin
             _miAutostart.Checked = Autostart.IsEnabled();
             _miLangTh.Checked = _cfg.Language == "th";
             _miLangEn.Checked = _cfg.Language == "en";
+            _miLangMixed.Checked = _cfg.Language == "th-en";
             _miLangAuto.Checked = _cfg.Language == "auto";
 
             var tip = "WhisperApp — กด " + _hotkey.DisplayString + (_cfg.HotkeyHoldMode ? " ค้างเพื่อพูด" : " เพื่อเริ่ม/หยุด");
