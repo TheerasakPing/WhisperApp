@@ -18,11 +18,11 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 - 🔄 **Live model catalogs** — supported providers can load their current `/models` catalog directly in Settings while retaining manual Model ID entry as a fallback
 - 🖥️ **Local LLM support on macOS** — Ollama and LM Studio presets, with no API key required
 - ☁️ **Selectable cloud STT** — ElevenLabs Scribe, OpenAI, Groq Whisper, Alibaba Qwen3-ASR-Flash, or a custom OpenAI-compatible transcription endpoint
-- 🇹🇭 **Qwen3-ASR-Flash** — supports Thai and other multilingual dictation through Alibaba Model Studio's OpenAI-compatible audio-chat API
+- 🇹🇭 **Qwen3-ASR-Flash** — supports Thai and other multilingual dictation through Alibaba Model Studio's OpenAI-compatible audio-chat API on macOS and Windows
 - ✨ **AI text correction** — fixes garbled words and adds punctuation before pasting
 - 📋 **Auto-paste** into the focused app (simulates ⌘V)
 - 🌊 Live waveform + status overlay (recording → transcribing → fixing → done)
-- 🔒 API keys are stored locally (`~/.whisperapp/` on macOS; app config on Windows) and are never bundled with the app
+- 🔒 **Secure API-key storage** — macOS Keychain and Windows DPAPI (CurrentUser). Existing plaintext key files/config entries are migrated automatically and deleted only after secure write verification
 - ✅ Signed & **notarized** macOS DMG
 
 ## Requirements
@@ -44,7 +44,7 @@ A macOS menu-bar dictation app — hold **Fn**, speak, release, and the AI-corre
 
 ## Provider configuration
 
-Provider settings are stored per provider, so switching between services does not overwrite the other providers' model or endpoint choices.
+Provider settings are stored per provider, so switching between services does not overwrite the other providers' model or endpoint choices. API keys are stored separately from ordinary settings: macOS uses Keychain and Windows uses a DPAPI-encrypted credential file scoped to the current Windows user.
 
 API keys are resolved from the Settings UI first, then from the provider's environment variable (for example `GROQ_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, `DASHSCOPE_API_KEY`, `MOONSHOT_API_KEY`, or `ARK_API_KEY`).
 
@@ -53,7 +53,7 @@ API keys are resolved from the Settings UI first, then from the provider's envir
 export GROQ_API_KEY="gsk_..."
 ```
 
-For providers with a model catalog endpoint, click **Load Models** in Settings to fetch the currently available model IDs. You can always type a model ID manually when a provider does not expose a catalog or when you need a model that is not listed.
+For providers with a model catalog endpoint, click **Load Models** in Settings to fetch the currently available model IDs. This is available on both macOS and Windows. You can always type a model ID manually when a provider does not expose a catalog or when you need a model that is not listed.
 
 Alibaba Model Studio uses region/workspace-specific OpenAI-compatible endpoints. Use the full `/chat/completions` URL for the Qwen Chat preset, the full `/compatible-mode/v1/responses` URL for Qwen Responses, and the workspace `/compatible-mode/v1/chat/completions` URL for Qwen3-ASR-Flash. Qwen3-ASR-Flash sends the recorded WAV as a Base64 Data URI and reads the non-streaming transcript from the chat-completion response. Kimi uses the international Moonshot endpoint by default. Doubao uses Volcengine Ark's Beijing OpenAI-compatible endpoint; users can override endpoint/model for their Ark project or inference endpoint.
 

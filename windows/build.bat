@@ -16,7 +16,7 @@ if not defined CSC set "CSC=C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.
 set "FW=C:\Windows\Microsoft.NET\Framework64\v4.0.30319"
 
 echo Using C# compiler: %CSC%
-"%CSC%" /nologo /noconfig /nostdlib+ /target:winexe /platform:anycpu /optimize+ /langversion:7.3 /codepage:65001 /out:"%~dp0WhisperApp.exe" /r:"%FW%\mscorlib.dll" /r:"%FW%\System.dll" /r:"%FW%\System.Core.dll" /r:"%FW%\System.Drawing.dll" /r:"%FW%\System.Windows.Forms.dll" /r:"%FW%\System.Net.Http.dll" /r:"%FW%\System.Web.Extensions.dll" "%~dp0src\*.cs"
+"%CSC%" /nologo /noconfig /nostdlib+ /target:winexe /platform:anycpu /optimize+ /langversion:7.3 /codepage:65001 /out:"%~dp0WhisperApp.exe" /r:"%FW%\mscorlib.dll" /r:"%FW%\System.dll" /r:"%FW%\System.Core.dll" /r:"%FW%\System.Drawing.dll" /r:"%FW%\System.Windows.Forms.dll" /r:"%FW%\System.Net.Http.dll" /r:"%FW%\System.Web.Extensions.dll" /r:"%FW%\System.Security.dll" "%~dp0src\*.cs"
 
 if errorlevel 1 (
   echo BUILD FAILED

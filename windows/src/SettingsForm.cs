@@ -20,6 +20,7 @@ namespace WhisperWin
         private ComboBox _cboStt, _cboLlm, _cboLang, _cboKey;
         private TextBox _txtSttKey, _txtSttModel, _txtSttEndpoint;
         private TextBox _txtLlmKey, _txtLlmModel, _txtLlmEndpoint;
+        private Button _btnLoadModels;
         private CheckBox _chkCorrection, _chkCtrl, _chkAlt, _chkShift, _chkAutostart, _chkLocal;
         private RadioButton _radHold, _radToggle;
         private TextBox _txtWhisperExe, _txtModelDir;
@@ -59,10 +60,15 @@ namespace WhisperWin
         public SettingsForm(AppConfig cfg)
         {
             _cfg = cfg;
-            _sttKeys = new Dictionary<string, string>(cfg.SttKeys);
+            _sttKeys = CredentialStore.LoadProviderKeys("stt:", SttRegistry.All.Select(p => p.Id));
+            foreach (var kv in cfg.SttKeys)
+                if (!_sttKeys.ContainsKey(kv.Key)) _sttKeys[kv.Key] = kv.Value;
             _sttModels = new Dictionary<string, string>(cfg.SttModels);
             _sttEndpoints = new Dictionary<string, string>(cfg.SttEndpoints);
-            _llmKeys = new Dictionary<string, string>(cfg.LlmKeys);
+
+            _llmKeys = CredentialStore.LoadProviderKeys("llm:", LlmRegistry.All.Select(p => p.Id));
+            foreach (var kv in cfg.LlmKeys)
+                if (!_llmKeys.ContainsKey(kv.Key)) _llmKeys[kv.Key] = kv.Value;
             _llmModels = new Dictionary<string, string>(cfg.LlmModels);
             _llmEndpoints = new Dictionary<string, string>(cfg.LlmEndpoints);
 
@@ -99,13 +105,16 @@ namespace WhisperWin
             _cboLlm = AddCombo(gLlm, "ผู้ให้บริการ", 56, LlmRegistry.All.Cast<object>().ToArray());
             _txtLlmKey = AddText(gLlm, "API key", 86, 400, true);
             _txtLlmModel = AddText(gLlm, "โมเดล", 116, 250, false);
+            _btnLoadModels = new Button { Text = "Load Models", Left = 390, Top = 114, Width = 128, Height = 25 };
+            _btnLoadModels.Click += async delegate { await LoadModelsAsync(); };
+            gLlm.Controls.Add(_btnLoadModels);
             _txtLlmEndpoint = AddText(gLlm, "Endpoint", 146, 400, false);
             _cboLlm.SelectedIndexChanged += delegate { OnLlmProviderChanged(); };
             y += 182 + 10;
 
             // --- General group ---
             var gGen = AddGroup("ทั่วไป", y, 148);
-            _cboLang = AddCombo(gGen, "ภาษาที่พูด", 26, new object[] { "ไทย", "English", "ตรวจอัตโนมัติ" });
+            _cboLang = AddCombo(gGen, "ภาษาที่พูด", 26, new object[] { "ไทย", "English", "ไทย + English (Mixed)", "ตรวจอัตโนมัติ" });
 
             AddLabel(gGen, "ปุ่มลัด", 60);
             _cboKey = new ComboBox { Left = 130, Top = 56, Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -192,7 +201,8 @@ namespace WhisperWin
             _llmPrev = CurrentLlm().Id;
             LoadLlmFields(CurrentLlm());
 
-            _cboLang.SelectedIndex = _cfg.Language == "en" ? 1 : (_cfg.Language == "auto" ? 2 : 0);
+            _cboLang.SelectedIndex = _cfg.Language == "en" ? 1
+                : (_cfg.Language == "th-en" ? 2 : (_cfg.Language == "auto" ? 3 : 0));
 
             int keyIdx = Array.FindIndex(HotkeyChoices, k => k.Vk == _cfg.HotkeyVk);
             _cboKey.SelectedIndex = keyIdx >= 0 ? keyIdx : 8; // F9
@@ -261,6 +271,7 @@ namespace WhisperWin
             SetCue(_txtLlmKey, EnvHint(p.EnvKey));
             SetCue(_txtLlmModel, p.DefaultModel);
             SetCue(_txtLlmEndpoint, p.DefaultEndpoint);
+            _btnLoadModels.Enabled = !string.IsNullOrWhiteSpace(p.ModelsEndpoint);
         }
 
         private static string EnvHint(string envKey)
@@ -269,6 +280,73 @@ namespace WhisperWin
             return string.IsNullOrWhiteSpace(v)
                 ? "วางคีย์ที่นี่ (หรือตั้ง env " + envKey + ")"
                 : "ใช้จาก env " + envKey + " (ใส่เพื่อ override)";
+        }
+
+        private async System.Threading.Tasks.Task LoadModelsAsync()
+        {
+            StashLlm(_llmPrev);
+            var provider = CurrentLlm();
+            if (provider == null) return;
+
+            var typedKey = (_txtLlmKey.Text ?? "").Trim();
+            var key = typedKey.Length > 0 ? typedKey : _cfg.LlmKey(provider);
+
+            _btnLoadModels.Enabled = false;
+            _btnLoadModels.Text = "Loading…";
+            try
+            {
+                var models = await ModelCatalogClient.FetchAsync(provider, key);
+                if (models.Count == 0) return;
+
+                using (var picker = new Form())
+                {
+                    picker.Text = provider.Name + " — Models";
+                    picker.StartPosition = FormStartPosition.CenterParent;
+                    picker.ClientSize = new Size(520, 430);
+                    picker.MinimizeBox = false;
+                    picker.MaximizeBox = false;
+
+                    var list = new ListBox
+                    {
+                        Left = 12,
+                        Top = 12,
+                        Width = 496,
+                        Height = 360
+                    };
+                    list.Items.AddRange(models.Cast<object>().ToArray());
+                    var current = (_txtLlmModel.Text ?? "").Trim();
+                    if (current.Length > 0)
+                    {
+                        var idx = models.FindIndex(m => String.Equals(m, current, StringComparison.OrdinalIgnoreCase));
+                        if (idx >= 0) list.SelectedIndex = idx;
+                    }
+                    if (list.SelectedIndex < 0 && list.Items.Count > 0) list.SelectedIndex = 0;
+
+                    var ok = new Button
+                    {
+                        Text = "Use Selected",
+                        Left = 374,
+                        Top = 384,
+                        Width = 134,
+                        DialogResult = DialogResult.OK
+                    };
+                    picker.Controls.Add(list);
+                    picker.Controls.Add(ok);
+                    picker.AcceptButton = ok;
+
+                    if (picker.ShowDialog(this) == DialogResult.OK && list.SelectedItem != null)
+                        _txtLlmModel.Text = list.SelectedItem.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Load Models", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _btnLoadModels.Enabled = true;
+                _btnLoadModels.Text = "Load Models";
+            }
         }
 
         private void StashStt(string id)
@@ -301,17 +379,31 @@ namespace WhisperWin
             StashLlm(CurrentLlm().Id);
 
             _cfg.SttProvider = CurrentStt().Id;
-            _cfg.SttKeys.Clear(); foreach (var kv in _sttKeys) _cfg.SttKeys[kv.Key] = kv.Value;
+            if (!CredentialStore.SaveProviderKeys("stt:", _sttKeys, SttRegistry.All.Select(p => p.Id)))
+            {
+                MessageBox.Show("บันทึก API key ลง Windows Credential Store ไม่สำเร็จ กรุณาลองอีกครั้ง",
+                    "WhisperApp", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            _cfg.SttKeys.Clear();
             _cfg.SttModels.Clear(); foreach (var kv in _sttModels) _cfg.SttModels[kv.Key] = kv.Value;
             _cfg.SttEndpoints.Clear(); foreach (var kv in _sttEndpoints) _cfg.SttEndpoints[kv.Key] = kv.Value;
 
             _cfg.UseCorrection = _chkCorrection.Checked;
             _cfg.LlmProvider = CurrentLlm().Id;
-            _cfg.LlmKeys.Clear(); foreach (var kv in _llmKeys) _cfg.LlmKeys[kv.Key] = kv.Value;
+            if (!CredentialStore.SaveProviderKeys("llm:", _llmKeys, LlmRegistry.All.Select(p => p.Id)))
+            {
+                MessageBox.Show("บันทึก AI API key ลง Windows Credential Store ไม่สำเร็จ กรุณาลองอีกครั้ง",
+                    "WhisperApp", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            _cfg.LlmKeys.Clear();
             _cfg.LlmModels.Clear(); foreach (var kv in _llmModels) _cfg.LlmModels[kv.Key] = kv.Value;
             _cfg.LlmEndpoints.Clear(); foreach (var kv in _llmEndpoints) _cfg.LlmEndpoints[kv.Key] = kv.Value;
 
-            _cfg.Language = _cboLang.SelectedIndex == 1 ? "en" : (_cboLang.SelectedIndex == 2 ? "auto" : "th");
+            _cfg.Language = _cboLang.SelectedIndex == 1 ? "en"
+                : (_cboLang.SelectedIndex == 2 ? "th-en"
+                    : (_cboLang.SelectedIndex == 3 ? "auto" : "th"));
 
             var key = (KeyItem)_cboKey.SelectedItem;
             if (key != null) _cfg.HotkeyVk = key.Vk;
