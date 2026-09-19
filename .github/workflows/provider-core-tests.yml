@@ -87,6 +87,18 @@ jobs:
       - name: Test AI action UI
         run: bash scripts/test_ai_action_ui.sh
 
+      - name: Test Meeting core
+        run: bash scripts/test_meeting_core.sh
+
+      - name: Test Meeting store
+        run: bash scripts/test_meeting_store.sh
+
+      - name: Test Meeting integration
+        run: bash scripts/test_meeting_integration.sh
+
+      - name: Test Meeting UI
+        run: bash scripts/test_meeting_ui.sh
+
       - name: Test macOS arm64 release contract
         run: bash scripts/test_macos_arm64_release_config.sh
 
