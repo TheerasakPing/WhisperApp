@@ -2,8 +2,8 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 
 function Require-Text([string]$path, [string]$needle, [string]$message) {
-    $text = Get-Content (Join-Path $root $path) -Raw
-    if (-not $text.Contains($needle)) { throw ("FAIL: " + $message) }
+    $fileText = Get-Content (Join-Path $root $path) -Raw
+    if (-not $fileText.Contains($needle)) { throw ("FAIL: " + $message) }
 }
 
 Require-Text "windows/src/CredentialStore.cs" "ProtectedData.Protect" "Windows keys must be encrypted with DPAPI"
@@ -22,8 +22,8 @@ Require-Text "windows/src/SttClient.cs" "input_audio" "Qwen request must send in
 Require-Text "windows/src/SttClient.cs" "data:audio/wav;base64," "Qwen audio must use a Data URI"
 Require-Text "windows/src/SttClient.cs" "choices" "Qwen response must parse chat choices"
 
-Require-Text "windows/src/SettingsForm.cs" "ไทย + English (Mixed)" "Windows settings must expose Thai-English mixed mode"
-Require-Text "windows/src/SettingsForm.cs" "th-en" "Windows must persist th-en language mode"
+Require-Text "windows/src/SettingsForm.cs" "th-en" "Windows settings must persist mixed-language mode"
+Require-Text "windows/src/TrayContext.cs" "th-en" "Windows tray must expose mixed-language mode"
 
 Require-Text "windows/src/Providers.cs" "ModelsEndpoint" "Windows providers must define model catalog metadata"
 Require-Text "windows/src/ModelCatalogClient.cs" "FetchAsync" "Windows must fetch model catalogs"
