@@ -34,19 +34,19 @@ enum AIActionPrompt {
         case .polite:
             return common + """
             
-            Rewrite the text to sound more polite and considerate while preserving the original meaning,
+            Rewrite the text to sound more polite and considerate. Preserve the original meaning,
             factual claims, names, numbers, technical terms, and language. Do not add new commitments or facts.
             """
         case .concise:
             return common + """
             
-            Make the text shorter and clearer while preserving the original meaning, essential details,
+            Make the text shorter and clearer. Preserve the original meaning, essential details,
             names, numbers, technical terms, and language. Remove redundancy without inventing information.
             """
         case .formal:
             return common + """
             
-            Rewrite the text in a professional, formal tone while preserving the original meaning,
+            Rewrite the text in a professional, formal tone. Preserve the original meaning,
             factual claims, names, numbers, technical terms, and language. Do not add new facts.
             """
         case .summarize:
