@@ -6,6 +6,8 @@ struct SettingsView: View {
     // Hotkey
     @State private var hotkeyConfig = HotkeyManager.shared.currentConfig
     @State private var isRecordingHotkey = false
+    @State private var commandHotkeyConfig = CommandHotkeyManager.shared.currentConfig
+    @State private var isRecordingCommandHotkey = false
 
     // STT
     @State private var sttProviderID = STTSettings.providerID
@@ -82,9 +84,42 @@ struct SettingsView: View {
                 .onChange(of: hotkeyConfig.isHoldMode) { _ in HotkeyManager.shared.updateConfig(hotkeyConfig) }
             Text("Toggle mode: double-tap to start, single tap to stop · Hold mode: press and hold to record")
                 .font(.caption2).foregroundColor(.secondary)
+
+            Divider().padding(.vertical, 2)
+
+            Text("Command Mode Hotkey")
+                .font(.caption.bold())
+            HStack(spacing: 12) {
+                Text("Shortcut:").font(.caption)
+                HotkeyRecorderView(
+                    hotkey: $commandHotkeyConfig,
+                    isRecording: $isRecordingCommandHotkey
+                )
+                .frame(width: 180, height: 30)
+                Button(isRecordingCommandHotkey ? "Listening…" : "Change") {
+                    isRecordingCommandHotkey.toggle()
+                }
+                .disabled(isRecordingCommandHotkey)
+                Button("Reset") {
+                    commandHotkeyConfig = CommandHotkeyManager.defaultConfig
+                    CommandHotkeyManager.shared.updateConfig(commandHotkeyConfig)
+                }
+            }
+            Text("Default: ⌃⌥Space · transforms selected text only after you choose an action.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
         }
         .onChange(of: hotkeyConfig.keyCode) { _ in HotkeyManager.shared.updateConfig(hotkeyConfig) }
         .onChange(of: hotkeyConfig.modifiers) { _ in HotkeyManager.shared.updateConfig(hotkeyConfig) }
+        .onChange(of: commandHotkeyConfig.keyCode) { _ in
+            CommandHotkeyManager.shared.updateConfig(commandHotkeyConfig)
+        }
+        .onChange(of: commandHotkeyConfig.modifiers) { _ in
+            CommandHotkeyManager.shared.updateConfig(commandHotkeyConfig)
+        }
+        .onChange(of: commandHotkeyConfig.isModifierOnly) { _ in
+            CommandHotkeyManager.shared.updateConfig(commandHotkeyConfig)
+        }
     }
 
     private var localModeSection: some View {

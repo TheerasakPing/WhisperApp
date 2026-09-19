@@ -6,6 +6,7 @@ import Sparkle
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
     let controller = DictationController()
+    let commandModeController = CommandModeController()
 
     private var statusItem: NSStatusItem!
     private var panel: NSPanel!
@@ -17,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     private var dictionaryWindow: NSWindow?
     private var historyWindow: NSWindow?
     private var snippetsWindow: NSWindow?
+    private var commandModeWindow: NSWindow?
 
     private var toggleItem: NSMenuItem!
     private var cloudItem: NSMenuItem!
@@ -29,6 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         setupStatusItem()
         setupPanel()
         setupHotkey()
+        setupCommandHotkey()
 
         // Update icon / panel based on processing stage
         controller.$stage
@@ -110,6 +113,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         undoLast.target = self
         undoLast.image = NSImage(systemSymbolName: "arrow.uturn.backward", accessibilityDescription: nil)
         menu.addItem(undoLast)
+
+        let commandMode = NSMenuItem(title: "Command Mode…", action: #selector(openCommandMode), keyEquivalent: "")
+        commandMode.target = self
+        commandMode.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)
+        menu.addItem(commandMode)
 
         let history = NSMenuItem(title: "History…", action: #selector(openHistory), keyEquivalent: "")
         history.target = self
@@ -264,6 +272,44 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         snippetsWindow?.makeKeyAndOrderFront(nil)
     }
 
+    @objc private func openCommandMode() {
+        commandModeController.begin { [weak self] ready in
+            guard ready else { return }
+            self?.showCommandModeWindow()
+        }
+    }
+
+    private func showCommandModeWindow() {
+        if commandModeWindow == nil {
+            let w = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 560, height: 500),
+                styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+            w.title = "Command Mode"
+            w.contentView = NSHostingView(rootView: CommandModeView(
+                controller: commandModeController,
+                onClose: { [weak self] in self?.closeCommandModeWindow() }
+            ))
+            w.isReleasedWhenClosed = false
+            w.delegate = self
+            w.center()
+            commandModeWindow = w
+        }
+
+        commandModeController.onApplied = { [weak self] in
+            self?.closeCommandModeWindow()
+        }
+
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        commandModeWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    private func closeCommandModeWindow() {
+        commandModeWindow?.orderOut(nil)
+        commandModeController.reset()
+        NSApp.setActivationPolicy(.accessory)
+    }
+
     @objc private func openHistory() {
         if historyWindow == nil {
             let w = NSWindow(
@@ -284,7 +330,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     // Return to menu-bar mode when a window closes (hide from Dock)
     func windowWillClose(_ notification: Notification) {
         let win = notification.object as? NSWindow
-        if win === settingsWindow || win === aboutWindow || win === dictionaryWindow || win === historyWindow || win === snippetsWindow {
+        if win === settingsWindow || win === aboutWindow || win === dictionaryWindow || win === historyWindow || win === snippetsWindow || win === commandModeWindow {
             NSApp.setActivationPolicy(.accessory)
         }
     }
@@ -368,5 +414,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
         }
 
         mgr.start()
+    }
+
+    private func setupCommandHotkey() {
+        let manager = CommandHotkeyManager.shared
+        manager.onInvoke = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard !self.controller.isRecording else { return }
+                self.openCommandMode()
+            }
+        }
+        manager.start()
     }
 }
