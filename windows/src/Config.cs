@@ -144,7 +144,8 @@ namespace WhisperWin
         public bool LlmConfigured()
         {
             var p = LlmRegistry.Get(LlmProvider);
-            return !string.IsNullOrEmpty(LlmKey(p)) && !string.IsNullOrEmpty(LlmEndpoint(p));
+            var authOK = !p.RequiresApiKey || !string.IsNullOrEmpty(LlmKey(p));
+            return authOK && !string.IsNullOrEmpty(LlmEndpoint(p)) && !string.IsNullOrEmpty(LlmModel(p));
         }
 
         private static string EnvOrNull(string name)
