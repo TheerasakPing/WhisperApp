@@ -92,7 +92,9 @@ struct MeetingCoreTests {
                    "plain text export must include title and transcript")
 
         let data = try MeetingJSON.export(session)
-        let decoded = try JSONDecoder().decode(MeetingSession.self, from: data)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(MeetingSession.self, from: data)
         try expect(decoded.id == session.id && decoded.transcript == session.transcript,
                    "JSON export must round-trip the meeting session")
     }
