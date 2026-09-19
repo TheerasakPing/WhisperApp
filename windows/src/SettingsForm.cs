@@ -20,6 +20,7 @@ namespace WhisperWin
         private ComboBox _cboStt, _cboLlm, _cboLang, _cboKey;
         private TextBox _txtSttKey, _txtSttModel, _txtSttEndpoint;
         private TextBox _txtLlmKey, _txtLlmModel, _txtLlmEndpoint;
+        private Button _btnLoadModels;
         private CheckBox _chkCorrection, _chkCtrl, _chkAlt, _chkShift, _chkAutostart, _chkLocal;
         private RadioButton _radHold, _radToggle;
         private TextBox _txtWhisperExe, _txtModelDir;
@@ -104,6 +105,9 @@ namespace WhisperWin
             _cboLlm = AddCombo(gLlm, "ผู้ให้บริการ", 56, LlmRegistry.All.Cast<object>().ToArray());
             _txtLlmKey = AddText(gLlm, "API key", 86, 400, true);
             _txtLlmModel = AddText(gLlm, "โมเดล", 116, 250, false);
+            _btnLoadModels = new Button { Text = "Load Models", Left = 390, Top = 114, Width = 128, Height = 25 };
+            _btnLoadModels.Click += async delegate { await LoadModelsAsync(); };
+            gLlm.Controls.Add(_btnLoadModels);
             _txtLlmEndpoint = AddText(gLlm, "Endpoint", 146, 400, false);
             _cboLlm.SelectedIndexChanged += delegate { OnLlmProviderChanged(); };
             y += 182 + 10;
@@ -267,6 +271,7 @@ namespace WhisperWin
             SetCue(_txtLlmKey, EnvHint(p.EnvKey));
             SetCue(_txtLlmModel, p.DefaultModel);
             SetCue(_txtLlmEndpoint, p.DefaultEndpoint);
+            _btnLoadModels.Enabled = !string.IsNullOrWhiteSpace(p.ModelsEndpoint);
         }
 
         private static string EnvHint(string envKey)
@@ -275,6 +280,73 @@ namespace WhisperWin
             return string.IsNullOrWhiteSpace(v)
                 ? "วางคีย์ที่นี่ (หรือตั้ง env " + envKey + ")"
                 : "ใช้จาก env " + envKey + " (ใส่เพื่อ override)";
+        }
+
+        private async System.Threading.Tasks.Task LoadModelsAsync()
+        {
+            StashLlm(_llmPrev);
+            var provider = CurrentLlm();
+            if (provider == null) return;
+
+            var typedKey = (_txtLlmKey.Text ?? "").Trim();
+            var key = typedKey.Length > 0 ? typedKey : _cfg.LlmKey(provider);
+
+            _btnLoadModels.Enabled = false;
+            _btnLoadModels.Text = "Loading…";
+            try
+            {
+                var models = await ModelCatalogClient.FetchAsync(provider, key);
+                if (models.Count == 0) return;
+
+                using (var picker = new Form())
+                {
+                    picker.Text = provider.Name + " — Models";
+                    picker.StartPosition = FormStartPosition.CenterParent;
+                    picker.ClientSize = new Size(520, 430);
+                    picker.MinimizeBox = false;
+                    picker.MaximizeBox = false;
+
+                    var list = new ListBox
+                    {
+                        Left = 12,
+                        Top = 12,
+                        Width = 496,
+                        Height = 360
+                    };
+                    list.Items.AddRange(models.Cast<object>().ToArray());
+                    var current = (_txtLlmModel.Text ?? "").Trim();
+                    if (current.Length > 0)
+                    {
+                        var idx = models.FindIndex(m => String.Equals(m, current, StringComparison.OrdinalIgnoreCase));
+                        if (idx >= 0) list.SelectedIndex = idx;
+                    }
+                    if (list.SelectedIndex < 0 && list.Items.Count > 0) list.SelectedIndex = 0;
+
+                    var ok = new Button
+                    {
+                        Text = "Use Selected",
+                        Left = 374,
+                        Top = 384,
+                        Width = 134,
+                        DialogResult = DialogResult.OK
+                    };
+                    picker.Controls.Add(list);
+                    picker.Controls.Add(ok);
+                    picker.AcceptButton = ok;
+
+                    if (picker.ShowDialog(this) == DialogResult.OK && list.SelectedItem != null)
+                        _txtLlmModel.Text = list.SelectedItem.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Load Models", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _btnLoadModels.Enabled = true;
+                _btnLoadModels.Text = "Load Models";
+            }
         }
 
         private void StashStt(string id)
