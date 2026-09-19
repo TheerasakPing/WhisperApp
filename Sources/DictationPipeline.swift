@@ -86,7 +86,8 @@ final class DictationPipeline {
             }
 
             let cleaned = DictationTextProcessor.stripSoundAnnotations(raw)
-            guard !cleaned.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            let commandProcessed = VoiceCommandProcessor.apply(to: cleaned)
+            guard !commandProcessed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 finish(.failure(.emptyTranscript))
                 return
             }
@@ -109,13 +110,13 @@ final class DictationPipeline {
             }
 
             guard request.correctionEnabled else {
-                completeText(nil, cleaned)
+                completeText(nil, commandProcessed)
                 return
             }
 
             onEvent(.correcting)
-            self.corrector.correct(text: cleaned, language: request.language, profile: request.profile) { corrected in
-                completeText(corrected, corrected ?? cleaned)
+            self.corrector.correct(text: commandProcessed, language: request.language, profile: request.profile) { corrected in
+                completeText(corrected, corrected ?? commandProcessed)
             }
         }
 
