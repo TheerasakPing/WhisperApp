@@ -3,7 +3,6 @@ import Foundation
 import AppKit
 import Combine
 
-@MainActor
 final class MeetingModeController: ObservableObject {
     @Published var title = ""
     @Published var transcript = ""
@@ -195,7 +194,7 @@ final class MeetingModeController: ObservableObject {
 
                 // Original meeting audio is temporary; only transcript/notes are retained.
                 try? FileManager.default.removeItem(at: microphoneURL)
-                if let systemAudioURL {
+                if let systemAudioURL = self.systemAudioURL {
                     try? FileManager.default.removeItem(at: systemAudioURL)
                 }
                 self.microphoneURL = nil
