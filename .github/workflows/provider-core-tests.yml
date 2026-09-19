@@ -78,6 +78,15 @@ jobs:
       - name: Test local Whisper UI
         run: bash scripts/test_local_whisper_ui.sh
 
+      - name: Test AI action core
+        run: bash scripts/test_ai_action_core.sh
+
+      - name: Test AI action integration
+        run: bash scripts/test_ai_action_integration.sh
+
+      - name: Test AI action UI
+        run: bash scripts/test_ai_action_ui.sh
+
       - name: Test macOS arm64 release contract
         run: bash scripts/test_macos_arm64_release_config.sh
 
