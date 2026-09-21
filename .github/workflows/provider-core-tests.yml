@@ -1,5 +1,8 @@
 name: Provider Core Tests
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -196,3 +199,73 @@ jobs:
       - name: Test Windows security and parity
         shell: powershell
         run: windows\test_security_parity.ps1
+
+      - name: Package Windows portable executable
+        shell: powershell
+        run: |
+          Copy-Item windows\WhisperApp.exe Whisper-Windows-x64.exe
+          $hash = (Get-FileHash Whisper-Windows-x64.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Whisper-Windows-x64.exe" | Set-Content Whisper-Windows-x64.exe.sha256 -Encoding ascii
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Whisper-Windows-x64
+          path: |
+            Whisper-Windows-x64.exe
+            Whisper-Windows-x64.exe.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+
+  publish-test-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - provider-core
+      - macos-build
+      - windows-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download macOS installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Whisper-main-macOS-arm64-test
+          path: dist/macos
+
+      - name: Download Windows executable
+        uses: actions/download-artifact@v4
+        with:
+          name: Whisper-Windows-x64
+          path: dist/windows
+
+      - name: Publish rolling prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="test-latest"
+
+          git tag -f "$TAG" "$GITHUB_SHA"
+          git push origin -f "refs/tags/$TAG"
+
+          mapfile -t ASSETS < <(find dist -type f -maxdepth 2 | sort)
+          printf 'Publishing assets:\n'
+          printf ' - %s\n' "${ASSETS[@]}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+            gh release edit "$TAG" \
+              --title "Whisper Test Build (Latest)" \
+              --prerelease \
+              --notes "Automated test release from main commit $GITHUB_SHA. macOS DMG is ad-hoc signed (not notarized); Windows asset is a portable executable."
+          else
+            gh release create "$TAG" "${ASSETS[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "Whisper Test Build (Latest)" \
+              --prerelease \
+              --notes "Automated test release from main commit $GITHUB_SHA. macOS DMG is ad-hoc signed (not notarized); Windows asset is a portable executable."
+          fi
